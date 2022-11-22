@@ -98,7 +98,7 @@ opts_chunk$set(cache     =TRUE,
                echo      =FALSE, 
                eval      =TRUE,cache   =TRUE,
                cache.path="../cache/cond/",
-               fig.path  ="../figs/cond/",
+               fig.path  ="../tex/figs/cond/",
                fig.width =8,
                fig.height=6,
                dev       ="png")
@@ -108,11 +108,10 @@ iTab=0
 ```
 
 ```{r, dir}
-setwd("~/pCloudDrive/papers/inPrep/sprat")
-dirOM  =file.path(getwd(),"data/om")
-dirRes =file.path(getwd(),"data/results")
-dirRuns=file.path(getwd(),"data/runs")
-dirInp =file.path(getwd(),"data/inputs")
+dirOM  ="../data/om"
+dirRes ="../data/results"
+dirRuns="../data/runs"
+dirInp ="../data/inputs"
 ```
 
 ```{r, pkgs}
@@ -153,6 +152,7 @@ f<-function(x) -log(1-x)
 sel<-function(x) catch.sel(x)%/%fapex(catch.sel(x))
 ```
 
+
 ```{r, data}
 # Celtic Sea ###################################################################
 load(file.path(dirInp,"sprat_growth/CM_sprat_vb_param.RData"))
@@ -174,11 +174,8 @@ pars["s"]=0.7
 
 alk<-read.csv(file.path(dirInp,"/ALK/sprat_aged_data.csv"))
 
-# ICES #########################################################################
-load("~/pCloudDrive/papers/inPrep/sprat/data/ICESStocks_2021_eqsim_corrected_fishlife.Rdata")
+# Celtic Sea ###################################################################
 load(file.path(dirInp,"sprat_growth/CM_sprat_vb_param.RData"))
-
-sprat=ICESStocks[c("spr.27.22-32","spr.27.3a4")]
 
 # North Sea SMS outputs ########################################################
 sms=subset(read.csv(file.path(dirInp,"Assessed_species_details_by_age_and_quarter.csv")),
@@ -669,7 +666,7 @@ fbar(eq4)=FLQuant(seq(0,refpts(eq4)["crash","harvest",1]/refpts(eq4)["msy","harv
 ```
 
 ```{r}
-save(eq4,file="/home/laurie/Desktop/inPrep/sprat/data/om/eq4.RData")
+save(eq4,file="../data/om/eq4.RData")
 ```
 
 
