@@ -1,0 +1,135 @@
+---
+title: "**Performnace Metrics**"
+author: "L Kell"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+mathjax: TRUE
+fig_width: 6 
+fig_height: 4 
+tags: FLR FLCore introduction
+license: Creative Commons Attribution-ShareAlike 4.0 International Public License
+bibliography: /home/laurie/Desktop/refs.bib
+---
+
+```{r, knitr, eval=TRUE, echo=FALSE, warning=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(knitr)
+
+opts_chunk$set(cache     =TRUE, 
+               comment   =NA, 
+               warning   =FALSE, 
+               message   =FALSE, 
+               error     =FALSE, 
+               echo      =FALSE, 
+               eval      =TRUE,cache   =TRUE,
+               cache.path="../cache/pMetrics/",
+               fig.path  ="../figs/pMetrics-",
+               fig.width =8,
+               fig.height=3,
+               dev       ="png")
+
+iFig=0
+iTab=0
+```
+
+```{r, pkgs}
+library( ggplot2); theme_set(theme_bw())
+
+library(ggpubr)
+library(ggcorrplot)
+library(GGally)
+
+library(plyr)
+library(dplyr)
+library(reshape)
+
+library(FLCore)
+library(FLBRP)
+library(FLasher)
+library(FLife)
+library( ggplotFL)
+
+library(FLCandy)
+```
+
+
+# Performance Metrics
+
+The adoption of the voluntary Code of Conduct on Responsible Fishing and the United Nations Fish Stocks Agreement (PA, Garcia, 1996) requires that reference points and management plans are developed for all stocks—not just targeted commercial stocks, but also by-caught, threatened, endangered, and protected species (Sainsbury and Sumaila, 2003). Reference points are used in management plans as targets to maximize surplus production and as limits to minimize the risk of depleting a resource to a level where productivity is compromised. Reference points must integrate dynamic processes such as growth, fecundity, recruitment, mortality, and connectivity into indices for exploitation level and spawning reproductive potential. An example of a target reference point is the fishing mortality (F) that will produce the maximum sustainable yield (FMSY), commonly defined as the fishing mortality with a given fishing pattern and current environmental conditions that gives the long-term maximum yield. To ensure sustainability requires preventing a stock from becoming overfished, so that there is a low probability of compromising productivity. Therefore, many fishery management bodies also define a limit reference point, e.g. Blim, at a biomass at which recruitment or productivity is impaired (Restrepo and Powers, 1999). When assessing stocks, it is also important to consider trends as well as state since a stock at a target biomass may be declining due to overfishing, while, a depleted stock may be recovering due to management action (Hilborn, 2020).
+
+There are normally four main objectives, namely safety, status, yield and variability. Safety is ensuring that stock productivity is not impaired, while status is to ensure that $MSY$ is achieved. These are therefore represented by summarising status relative to limit and target reference points respectively. If status is at $B_MSY$ and exploitation at $F_{MSY}$ it is implicitly assumed that yield will be at $MSY$. However, if reference points assume stationary then this may not be the case and so the need for a yield statistic.  Management may result in large changes in catches in which case there will be a trade-off between maximising yield and minimising variability, and so inter-annual variability in yields needs to be considered. There is a potential fifth objective for forage species where maximising yield may mean that the predator share is reduced, we therefore have a fifth objective forage.
+
+@Fischer2021_GA defined a fitness function that included four components:
+\begin{equation}\label{eq:fitness_MSY}
+    \phi_{\text{MSY}}= \phi_{\text{SSB}}+\phi_{\text{Catch}}+\phi_{\text{risk}}+\phi_{\text{ICV}}\text{,}
+\end{equation}
+where the individual components were 
+
+\begin{equation}\label{eq:fitness_ssb}
+    \phi_{\text{SSB}}=-\ \bigg|\frac{\text{SSB}}{B_{\text{MSY}}}-1\bigg|\text{,}
+\end{equation}
+\begin{equation}\label{eq:fitness_catch}
+    \phi_{\text{Catch}}=-\ \bigg|\frac{\text{Catch}}{\text{MSY}}-1\bigg|\text{,}
+\end{equation}
+\begin{equation}\label{eq:fitness_risk}
+    \phi_{\text{risk}}=-\ B_{\text{lim}}\ \text{risk}, \text{\ and}
+\end{equation}
+\begin{equation}\label{eq:fitness_ICV}
+    \phi_{\text{ICV}}=-\ \text{ICV}\text{.}
+\end{equation}
+\begin{equation}\label{eq:fitness_ICV}
+    \phi_{\text{forage}}=-\ \text{ICV}\text{.}
+\end{equation}
+
+
+The summary statistics used in these fitness elements were calculated over the 50-year projection and 500 simulation replicates. $\text{SSB}/B_{\text{MSY}}$ and $\text{Catch}/\text{MSY}$ were the medians of their respective distributions and $B_{\text{lim}}\ \text{risk}$ the proportion of the SSB values falling below the biomass limit reference point $B_{\text{lim}}$ (defined as the SSB corresponding to a recruitment impairment of 30\%). The inter-annual catch variability (ICV) was the median of $|(C_y-C_{y-v})/C_{y-v}|$ (exclusive of undefined values due to division by zero) calculated every $v$ years, where $C_y$ is the catch for the year $y$ and $v$ the frequency of advice, e.g. $v=2$ for a biennial advice. Effectively, this fitness function was aimed at reaching MSY reference levels for SSB and catch, while at the same time reducing risk and ICV. 
+
+The ICES precautionary criterion generally states that the probability of SSB falling below $B_\text{lim}$ should not exceed 5\%. Therefore, $\phi_{\text{MSY}}$ is not entirely aligned towards the ICES precautionary approach, and $\phi_{\text{risk}}$ will need to be changed. Compliance with the precautionary approach can be achieved by including a penalty in the fitness when the risk exceeds 5\%, which was implemented by replacing $\phi_{\text{risk}}$ with a fitness function component for which the fitness value was linked to the $B_\text{lim}$ risk ($=P$) via a penalty function $\Omega$:
+\begin{equation}\label{eq:fitness_riskPA}
+    \phi_{\text{risk-PA}}=-\ \Omega(P)\ \text{,}
+\end{equation}
+and
+\begin{equation}\label{eq:penalty}
+    \Omega(P)= \frac{\tau_{m}}{1+e^{- \left(P - \tau_i \right)\tau_s}}\ \text{.}
+\end{equation}
+This function has a sigmoid shape (Figure \ref{fig:penalty}) and is characterised by three parameters; $\tau_{m}$ defines the maximum penalty, $\tau_{i}$ the inflection point and $\tau_{s}$ the steepness of the curve. The three parameters' values were based on considerations for one example stock (pollack, \textit{Pollachius pollachius}). When pollack was projected forward with zero catch, the sum of $\phi_{\text{SSB}}+\phi_{\text{Catch}}+\phi_{\text{ICV}}$ [Equations (\ref{eq:fitness_ssb}), (\ref{eq:fitness_catch}), and (\ref{eq:fitness_ICV})] had an absolute value of just below 5. Therefore, the maximum penalty $\tau_{m}$ was set to 5. This parameterisation had the effect that the $rfb$-rule parameterisation leading to zero-catch always had higher fitness than the $rfb$-rule parameterisations where $B_\text{lim}$ risk exceeded 5\%. The penalty curve inflection point was set to $\tau_{i}=0.06$ so that the risk could slightly exceed 5\% without immediately incurring the maximum penalty. The penalty steepness was set to $\tau_{s}=500$ so that the penalty quickly reached its maximum value but avoided a knife-edge which might cause problems during the optimisation. 
+
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics{figures/Blim_penalty_curve.pdf}
+    \caption{Fitness penalty ($\Omega$) as a function of $B_\text{lim}$ risk ($P$), as defined in Equation (\ref{eq:penalty}). The vertical red line represents the $B_\text{lim}$ risk limit of 5\%.}
+    \label{fig:penalty}
+\end{figure}
+
+The final fitness function, which included MSY objectives for catch and SSB and included precautionary considerations for the risk, was defined as:
+\begin{equation}\label{eq:fitness_PA}
+    \phi_{\text{MSY-PA}}= \phi_{\text{SSB}}+\phi_{\text{Catch}}+\phi_{\text{risk-PA}}+\phi_{\text{ICV}}\text{.}
+\end{equation}
+
+Each of the elements in $\phi_{\text{MSY-PA}}$ is negative because the genetic algorithm maximised the fitness. The fitness value of $\phi_{\text{MSY-PA}}$ quantifies the management performance of the simulation results (see e.g. Figures \ref{fig:pollack_rfb_PA_components} and \ref{fig:rfb_PA_all_stocks}, described in the Results section). Fitness values closer to 0 (less negative) indicate better performance. The aim of the optimisation procedure was to provide precautionary management solutions, and options where risk exceeds 5\% are clearly indicated by red shading.
+  
+
++ Median total catch over whole time period
++ Median inter-annual variability over whole time period 
++ Median stock size by year (and variability)
++ Median recruitment by year (and variability)
++ Median catch by year (and variability)
++ The number of years when the stability mechanism was applied
++ The median Inter-Annual Variability per iteration
+
+```{r}
+#Median total catch over whole time period
+#Median inter-annual variability over whole time period 
+
+#Median catch by year (and variability)
+#The median Inter-Annual Variability per iteration
+
+#Median stock size by year (and variability)
+
+#Median recruitment by year (and variability)
+
+#The number of years when the stability mechanism was applied
+```
+

@@ -1,0 +1,17 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+sprat_celtic_sea.Rproj
+
+/cache/
+/data/
+   .gitignore
+   /inputs/
+   /om/
+   /runs/
+   /results/
+/tex/
+/R/backUp/
+/Rmd/backUp/
+/run/backUp/  

@@ -1,0 +1,834 @@
+---
+title: "**Sprat  (Sprattus sprattus)**"
+subtitle: "Indicator Skill"
+author: "L Kell"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+mathjax: TRUE
+fig_width: 6 
+fig_height: 4 
+tags: FLR FLCore introduction
+license: Creative Commons Attribution-ShareAlike 4.0 International Public License
+bibliography: /home/laurie/Desktop/refs.bib
+---
+  
+```{r, knitr, eval=TRUE, echo=FALSE, warning=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(knitr)
+
+opts_chunk$set(cache     =TRUE, 
+               comment   =NA, 
+               warning   =FALSE, 
+               message   =FALSE, 
+               error     =FALSE, 
+               echo      =FALSE, 
+               eval      =TRUE,
+               cache     =TRUE,
+               cache.path="../cache/skill/",
+               fig.path  ="../figs/skill/",
+               fig.width =8,
+               fig.height=6,
+               dev       ="png")
+
+iFig=0
+iTab=0
+```
+
+
+```{r, dir}
+setwd("~/pCloudDrive/papers/inPrep/sprat")
+dirOM  =file.path(getwd(),"data/om") 
+dirRes =file.path(getwd(),"data/results")
+dirRuns=file.path(getwd(),"data/runs")
+dirInp =file.path(getwd(),"data/inputs")
+```
+
+```{r, pkgs}
+library(ggplot2); theme_set(theme_bw())
+
+library(ggpubr)
+library(ggcorrplot)
+library(GGally)
+
+library(plyr)
+library(dplyr)
+library(reshape)
+
+library(FLCore)
+library(FLBRP)
+library(FLasher)
+library(FLife)
+
+library(FLCandy)
+library(mpb)
+
+library(ggplotFL)
+
+library(statcomp)
+```
+
+```{r, oms}
+load(file.path(dirOM,"oms.RData"))
+```
+
+```{r}
+targetF=0.1
+```
+
+
+```{r om-plot, fig.height = 6, fig.width = 8}
+p1=plot(window(FLStocks("Status Quo"=burnin[[1]],"Kicked"=kick[[1]],
+                        "No Demand"=nodemand[[1]],"F Trend"=ftrend[[1]]),start=2010),metrics=list(
+    Rec  =function(x) rec(x)[,,,3],
+    SSB  =function(x) ssb(x)[,,,2],
+    Catch=function(x) apply(catch(x),c(2,6), sum),
+    F     =function(x) apply(fbar(x), c(2,6),mean),
+    Forage=function(x) apply(stock.wt(x)%*%(m(x)-0.1)/(z(x))%*%(1-exp(-z(x))),c(2,6),sum)),
+    iter=c(1,15))+
+  geom_flpar(data=FLPars(Rec  =FLPar("Rmsy"=refpts(eq4)[c("msy"),"rec",1,drop=T])*0.6,
+                           SSB  =FLPar("Bmsy"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                           F    =FLPar("Fmsy"=refpts(eq4)[c("msy"),"harvest",1,drop=T])/4,
+                           Catch=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])*4),x=rep(ISOdate(2012,1,1),4))+
+    theme_bw()+xlab("Year")+theme(legend.position="bottom")
+```
+
+```{r om-plot-2, fig.height = 6, fig.width = 8}
+p2=plot(window(FLStocks("Status Quo"=burnin[[2]],"Kicked"=kick[[2]],
+                        "No Demand"=nodemand[[2]],"F Trend"=ftrend[[2]]),start=2010),metrics=list(
+    Rec  =function(x) rec(x)[,,,3],
+    SSB  =function(x) ssb(x)[,,,2],
+    Catch=function(x) apply(catch(x),c(2,6), sum),
+    F     =function(x) apply(fbar(x), c(2,6),mean),
+    Forage=function(x) apply(stock.wt(x)%*%(m(x)-0.1)/(z(x))%*%(1-exp(-z(x))),c(2,6),sum)),
+    iter=c(1,15))+    geom_flpar(data=FLPars(Rec  =FLPar("Rmsy"=refpts(eq4)[c("msy"),"rec",1,drop=T])*0.6,
+                           SSB  =FLPar("Bmsy"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                           F    =FLPar("Fmsy"=refpts(eq4)[c("msy"),"harvest",1,drop=T])/4,
+                           Catch=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])*4),x=rep(ISOdate(2012,1,1),4))+
+    theme_bw()+xlab("Year")+theme(legend.position="bottom")
+```
+
+```{r om-plot-3, fig.height = 6, fig.width = 8}
+p3=plot(window(FLStocks("Status Quo"=burnin[[3]],"Kicked"=kick[[3]],
+                        "No Demand"=nodemand[[3]],"F Trend"=ftrend[[3]]),start=2010),metrics=list(
+    Rec  =function(x) rec(x)[,,,3],
+    SSB  =function(x) ssb(x)[,,,2],
+    Catch=function(x) apply(catch(x),c(2,6), sum),
+    F     =function(x) apply(fbar(x), c(2,6),mean),
+    Forage=function(x) apply(stock.wt(x)%*%(m(x)-0.1)/(z(x))%*%(1-exp(-z(x))),c(2,6),sum)),
+    iter=c(1,15))+    geom_flpar(data=FLPars(Rec  =FLPar("Rmsy"=refpts(eq4)[c("msy"),"rec",1,drop=T])*0.6,
+                           SSB  =FLPar("Bmsy"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                           F    =FLPar("Fmsy"=refpts(eq4)[c("msy"),"harvest",1,drop=T])/4,
+                           Catch=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])*4),x=rep(ISOdate(2012,1,1),4))+
+    theme_bw()+xlab("Year")+theme(legend.position="bottom") 
+```
+
+
+```{r om-plot-4, fig.height = 6, fig.width = 8}
+p4=plot(window(FLStocks("Status Quo"=burnin[[4]],"Kicked"=kick[[4]],
+                        "No Demand"=nodemand[[4]],"F Trend"=ftrend[[4]]),start=2010),metrics=list(
+    Rec  =function(x) rec(x)[,,,3],
+    SSB  =function(x) ssb(x)[,,,2],
+    Catch=function(x) apply(catch(x),c(2,6), sum),
+    F     =function(x) apply(fbar(x), c(2,6),mean),
+    Forage=function(x) apply(stock.wt(x)%*%(m(x)-0.1)/(z(x))%*%(1-exp(-z(x))),c(2,6),sum)),
+    iter=c(1,15))+  
+    geom_flpar(data=FLPars(Rec  =FLPar("Rmsy"=refpts(eq4)[c("msy"),"rec",1,drop=T])*0.6,
+                           SSB  =FLPar("Bmsy"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                           F    =FLPar("Fmsy"=refpts(eq4)[c("msy"),"harvest",1,drop=T])/4,
+                           Catch=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])*4),x=rep(ISOdate(2012,1,1),4))+
+    theme_bw()+xlab("Year")+theme(legend.position="bottom")
+```
+
+
+```{r, plot-oms, fig.width=10, fig.height=6}
+p1=p1+theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.y = element_blank() ) 
+p2=p2+theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.y = element_blank()) 
+p3=p3+theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.y = element_blank()) 
+p4=p4+theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.y = element_blank())
+            
+ggarrange(p1,p2,p3,p4,label.y=0, 
+          widths = c(2,2,2,2), heights = c(1),
+          nrow   = 1,          ncol    = 4,
+          labels = c("A","B"),
+          common.legend = TRUE,
+          align = "hv")+theme_bw()+
+          theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.title.y = element_blank())
+```
+
+**Figure `r iFig=iFig+1; iFig`** Operating Model
+
+
+## Abundance Index
+
+```{r hr}
+oms=FLStocks("Constant"=burnin[[1]],"No Demand"=nodemand[[1]],"Kicked"=kick[[1]],"F Trend"=ftrend[[1]])
+hDevs=    rlnoise(100,stock(oms[[1]])[,,,3,,1]%=%0,0.3,0)%*%
+     qmin(rlnoise(100,stock(oms[[1]])[,,,3,,1]%=%0,0.5,0.6),1)
+
+mp=as.data.frame(FLQuants(llply(oms,function(x) hDevs%*%catch(x)[,ac(2031),,"3"]%/%biomass(x)[,ac(2031),,"3"])),drop=T)
+om=as.data.frame(FLQuants(llply(oms,function(x) fbar(x)[, ac(2031),,"3"])),drop=T)
+hr=merge(om,mp,by=c("iter","qname"))
+```
+
+```{r, fhDEvs, ig.height=4, fig.width=8}
+plot(hDevs) 
+```
+
+**Figure `r iFig=iFig+1; iFig`** Survey devs
+
+```{r}
+x=ssb(oms[[2]])[,,,2] 
+
+y    =hDevs%*%biomass(oms[[2]])[,,,"3"]
+
+plot(FLQuants("OM"=x,"Index"=y))
+```
+
+**Figure `r iFig=iFig+1; iFig`** Index
+
+```{r}
+ggplot(model.frame(FLQuants("OM"=x,"Index"=y)))+
+  geom_point(aes(OM,Index))
+  #geom_vline(aes(xintercept=1),col="red")+
+  #geom_hline(aes(yintercept=1),col="red")  
+```
+
+**Figure `r iFig=iFig+1; iFig`** Index v OM
+
+
+## Harvest Rate
+
+```{r hr-index, fig.height=6, fig.width=8}
+plot(FLQuants("OM"=fbar(oms[[2]])[,,,"3"],
+              "Index"=hDevs%*%catch(oms[[2]])[,,,"3"]%/%biomass(oms[[2]])[,,,"3"]))
+```
+
+**Figure `r iFig=iFig+1; iFig`** HR Index
+
+```{r hr-plot, fig.height = 6, fig.width=6}
+ggplot(hr)+  
+  geom_point(aes(data.x,data.y))+
+  xlab("OM")+ylab("Index")+
+  geom_hline(aes(yintercept=0.025),col="red")+
+  geom_vline(aes(xintercept=targetF),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** Comparison between $Catch/SSB$ and OM F.
+
+
+```{r hr-roc}
+source("~/Desktop/flr/FLCandy/R/roc.R")
+
+rtn=with(hr,roc(data.x/targetF,data.y))
+
+hDevs=qmin(rlnoise(100,stock(oms[[1]])[,,,3,,1]%=%0,0.3,0.5),1)
+
+mp=as.data.frame(FLQuants(llply(oms,function(x) hDevs%*%catch(x)[,ac(2030),,"3"]%/%biomass(x)[,ac(2030),,"3"])),drop=T)
+om=as.data.frame(FLQuants(llply(oms,function(x) fbar(x)[, ac(2031),,"3"])),drop=T)
+hr=merge(om,mp,by=c("iter","qname"))
+
+rtn2=with(hr,roc(data.x/targetF,data.y))
+
+ggplot(rbind(cbind(Lag="1 Year",rtn2),
+             cbind(Lag="Noner",rtn)))+
+  geom_line(aes(FPR,TPR,col=Lag))
+  geom_abline(aes(intercept=0,slope=1),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC Curves Shifted by a year
+
+## Length Based Indicators
+
+```{r lbi}
+oms=FLStocks("Constant"=burnin[[1]],"No Demand"=nodemand[[1]],"Kicked"=kick[[1]])
+lbi=FLQuants(mlply(names(oms), function(qname) 
+  llply(indicators.len(oms[[qname]][,ac(seq(2018,2025,1)),,"3"], indicators=c('lbar'), params=pars[,1], metric='catch.n'))[[1]]))
+names(lbi)=names(oms)
+
+oms=FLStocks("Constant"=burnin[[2]],"No Demand"=nodemand[[2]],"Kicked"=kick[[2]])
+lbi2=FLQuants(mlply(names(oms), function(qname) 
+  llply(indicators.len(oms[[qname]][,ac(seq(2018,2025,1)),,"3"], indicators=c('lbar'), params=pars[,1], metric='catch.n'))[[1]]))
+names(lbi2)=names(oms)
+
+oms=FLStocks("Constant"=burnin[[3]],"No Demand"=nodemand[[3]],"Kicked"=kick[[3]])
+lbi3=FLQuants(mlply(names(oms), function(qname) 
+  llply(indicators.len(oms[[qname]][,ac(seq(2018,2025,1)),,"3"], indicators=c('lbar'), params=pars[,1], metric='catch.n'))[[1]]))
+names(lbi3)=names(oms)
+
+oms=FLStocks("Constant"=burnin[[4]],"No Demand"=nodemand[[4]],"Kicked"=kick[[4]])
+lbi4=FLQuants(mlply(names(oms), function(qname) 
+  llply(indicators.len(oms[[qname]][,ac(seq(2018,2025,1)),,"3"], indicators=c('lbar'), params=pars[,1], metric='catch.n'))[[1]]))
+names(lbi4)=names(oms)
+```
+
+```{r, lbi-plot, fig.height = 6, fig.width = 8}
+plot(lbi)
+```
+
+**Figure `r iFig=iFig+1; iFig`** Length based indicator
+
+```{r lbi-2}
+oms=FLStocks("Constant"=burnin[[1]],"No Demand"=nodemand[[1]],"Kicked"=kick[[1]])
+mp=as.data.frame(FLQuants(llply(oms,function(x) hDevs%*%catch(x)[,ac(2031),,"3"]%/%biomass(x)[,ac(2031),,"3"])),drop=T)
+om=as.data.frame(FLQuants(llply(oms,function(x) fbar(x)[, ac(2031),,"3"])),drop=T)
+hr=merge(om,mp,by=c("iter","qname"))
+lbi=transform(ldply(lbi, function(qname) as.data.frame(qname,drop=T)),qname=.id)[,-1]
+lbi=merge(om,lbi,by=c("iter","qname"),all.y=T)  
+
+oms=FLStocks("Constant"=burnin[[2]],"No Demand"=nodemand[[2]],"Kicked"=kick[[2]])
+mp2=as.data.frame(FLQuants(llply(oms,function(x) hDevs%*%catch(x)[,ac(2031),,"3"]%/%biomass(x)[,ac(2031),,"3"])),drop=T)
+om2=as.data.frame(FLQuants(llply(oms,function(x) fbar(x)[, ac(2031),,"3"])),drop=T)
+hr2=merge(om2,mp2,by=c("iter","qname"))
+lbi2=transform(ldply(lbi2, function(qname) as.data.frame(qname,drop=T)),qname=.id)[,-1]
+lbi2=merge(om,lbi2,by=c("iter","qname"),all.y=T)  
+
+oms=FLStocks("Constant"=burnin[[3]],"No Demand"=nodemand[[3]],"Kicked"=kick[[3]])
+mp3=as.data.frame(FLQuants(llply(oms,function(x) hDevs%*%catch(x)[,ac(2031),,"3"]%/%biomass(x)[,ac(2031),,"3"])),drop=T)
+om3=as.data.frame(FLQuants(llply(oms,function(x) fbar(x)[, ac(2031),,"3"])),drop=T)
+hr3=merge(om3,mp3,by=c("iter","qname"))
+lbi3=transform(ldply(lbi3, function(qname) as.data.frame(qname,drop=T)),qname=.id)[,-1]
+lbi3=merge(om,lbi3,by=c("iter","qname"),all.y=T)  
+
+oms=FLStocks("Constant"=burnin[[4]],"No Demand"=nodemand[[4]],"Kicked"=kick[[4]])
+mp4=as.data.frame(FLQuants(llply(oms,function(x) hDevs%*%catch(x)[,ac(2031),,"3"]%/%biomass(x)[,ac(2031),,"3"])),drop=T)
+om4=as.data.frame(FLQuants(llply(oms,function(x) fbar(x)[, ac(2031),,"3"])),drop=T)
+hr4=merge(om4,mp4,by=c("iter","qname"))
+lbi4=transform(ldply(lbi4, function(qname) as.data.frame(qname,drop=T)),qname=.id)[,-1]
+lbi4=merge(om,lbi4,by=c("iter","qname"),all.y=T)
+```
+
+```{r lbi-2-plot, fig.height=6, fig.width=8}
+ggplot(subset(lbi4,year>=2020))+  
+  geom_point(aes(data.x,1/(data.y/c(pars["linf",1]*0.8)),col=qname))+
+  xlab("OM")+ylab("Index")+
+  geom_hline(aes(yintercept=1),col="red")+
+  geom_vline(aes(xintercept=targetF),col="red")+
+  facet_wrap(~year)+
+  theme(legend.position="bottom") 
+```
+
+**Figure `r iFig=iFig+1; iFig`** Comparison of LBI with OM F.
+
+
+```{r TSS}
+source("~/Desktop/flr/FLCandy/R/roc.R")
+  
+rtn=ddply(subset(lbi, year>2020), .(year), with, roc(data.x/targetF,1/data.y))
+rt2=ddply(subset(lbi2,year>2020), .(year), with, roc(data.x/targetF,1/data.y))
+rt3=ddply(subset(lbi3,year>2020), .(year), with, roc(data.x/targetF,1/data.y))
+rt4=ddply(subset(lbi4,year>2020), .(year), with, roc(data.x/targetF,1/data.y))
+
+rtn=rbind(cbind(Scenario="Base",    rtn),
+          cbind(Scenario="M Cohort",rt2),
+          cbind(Scenario="M1",      rt3),
+          cbind(Scenario="M2",      rt4)) 
+
+#ddply(rtn, .(Scenario,year), with, transform(rtn[abs(rtn$ind-1)==min(abs(rtn$ind-1)),],roc.TSS=TPR-FPR)) 
+```
+
+
+```{r roc, fig.height = 6, fig.width = 8}
+ggplot(rtn)+ 
+  geom_line(aes(FPR,TPR,col=year,group=year))+geom_abline(aes(intercept=0,slope=1),col="red")+
+  facet_wrap(~Scenario)
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC Curves
+
+
+## Trends
+
+
+## Two over three rule
+
+```{r}
+#fn=function(x,f=2,t=3) 
+# sum(x[length(x)-(0:f)]) /
+# sum(x[length(x)-f-(0:t)])
+#aaply(y, c(1,3:6), function(x) maply(data.frame(i=(seq(length(x)-(t+f)))), function(i) fn(x[i:(i+t+f-1)])))
+
+oms=FLStocks("Constant"=burnin[[2]],"No Demand"=nodemand[[2]],"Kicked"=kick[[2]])
+om=FLQuants(llply(oms,function(x) biomass(x)[,,,3][,ac(2018:2024),,"3"]))
+mp=FLQuants(llply(om, function(x) hDevs[,dimnames(x)$year]%*%x))
+
+dat=maply(data.frame(year=2010:2030), 
+          function(year) #apply(window(x,start=year-1,end=year),c(1,3:6),mean)%/%
+                          #apply(window(x,start=year-4,end=year-2),c(1,3:6),mean))
+            yearMeans(window(om[[1]], start=year-1,end=year)) /
+              yearMeans(window(om[[1]], start=year-3,end=year-1)))
+dat=as.FLQuant(transmute(melt(dat),year=year,iter=iter,data=value))
+
+dt2=maply(data.frame(year=2010:2030), 
+          function(year) #apply(window(y,start=year-1,end=year),c(1,3:6),mean)%/%
+                         #  apply(window(y,start=year-4,end=year-2),c(1,3:6),mean))
+            yearMeans(window(mp[[1]], start=year-1,end=year)) /
+              yearMeans(window(mp[[1]], start=year-3,end=year-1)))
+dt2=as.FLQuant(transmute(melt(dt2),year=year,iter=iter,data=value))
+
+
+plot(FLQuants("OM"=dat,"Index"=dt2))
+```
+
+**Figure `r iFig=iFig+1; iFig`** $2/3$
+
+
+```{r}
+rtn=FLCore:::roc(dat[,ac(2019:2025)]>1,dt2[,ac(2019:2025)])
+
+ggplot(rtn)+  
+  geom_line(aes(FPR,TPR))+geom_abline(aes(intercept=0,slope=1),col="red")
+```
+
+
+**Figure `r iFig=iFig+1; iFig`** ROC Curve
+
+## One over Two rule
+
+```{r}
+#fn=function(x,f=2,t=3) 
+# sum(x[length(x)-(0:f)]) /
+# sum(x[length(x)-f-(0:t)])
+#aaply(y, c(1,3:6), function(x) maply(data.frame(i=(seq(length(x)-(t+f)))), function(i) fn(x[i:(i+t+f-1)])))
+
+dat=maply(data.frame(year=2010:2030), 
+          function(year) #apply(window(x,start=year-1,end=year),c(1,3:6),mean)%/%
+                          #apply(window(x,start=year-4,end=year-2),c(1,3:6),mean))
+            yearMeans(window(x, start=year,end=year)) /
+              yearMeans(window(x, start=year-2,end=year-1)))
+dat=as.FLQuant(transmute(melt(dat),year=year,iter=iter,data=value))  
+
+dt2=maply(data.frame(year=2010:2030), 
+          function(year) #apply(window(y,start=year-1,end=year),c(1,3:6),mean)%/%
+                         #  apply(window(y,start=year-4,end=year-2),c(1,3:6),mean))
+            yearMeans(window(y, start=year,end=year)) /
+              yearMeans(window(y, start=year-2,end=year-1)))
+dt2=as.FLQuant(transmute(melt(dt2),year=year,iter=iter,data=value))
+
+plot(FLQuants("OM"=dat,"Index"=dt2))
+```
+
+**Figure `r iFig=iFig+1; iFig`** $1/2$
+
+
+```{r}
+rtn=FLCore:::roc(dat[,ac(2019:2025)]>1,dt2[,ac(2019:2025)])  
+ggplot(rtn)+ 
+  geom_line(aes(FPR,TPR))+geom_abline(aes(intercept=0,slope=1),col="red")
+```
+
+
+**Figure `r iFig=iFig+1; iFig`** ROC Curve
+
+### Slope
+
+```{r}
+dat=maply(data.frame(year=2015:2025), function(year) aaply(window(x,start=year,end=year+4), c(1,3:6), function(idx) {
+    dat=data.frame(x=names(idx),y=log(c(idx)/mean(idx)))  
+    lm(y~x,data=dat)$coefficients[2]}))
+dat=as.FLQuant(as.data.frame((FLPar(dat))))
+
+dt2=maply(data.frame(year=2015:2025), function(year) aaply(window(y,start=year,end=year+4), c(1,3:6), function(idx) {
+    dat=data.frame(x=names(idx),y=log(c(idx)/mean(idx)))
+    lm(y~x,data=dat)$coefficients[2]}))
+dt2=as.FLQuant(as.data.frame((FLPar(dt2))))
+
+plot(FLQuants("OM"=dat,"Index"=dt2))
+```
+
+**Figure `r iFig=iFig+1; iFig`** Slope for 5 years
+
+
+```{r}
+rtn=FLCore:::roc(dat>0,dt2)  
+ggplot(rtn)+
+  geom_line(aes(FPR,TPR))+geom_abline(aes(intercept=0,slope=1),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC Curve
+
+
+```{r}
+dat=maply(data.frame(year=2015:2025), function(year) aaply(window(x,start=year,end=year+2), c(1,3:6), function(idx) {
+    dat=data.frame(x=names(idx),y=log(c(idx)/mean(idx)))
+    lm(y~x,data=dat)$coefficients[2]}))
+dat=as.FLQuant(as.data.frame((FLPar(dat))))  
+
+dt2=maply(data.frame(year=2015:2025), function(year) aaply(window(y,start=year,end=year+2), c(1,3:6), function(idx) {
+    dat=data.frame(x=names(idx),y=log(c(idx)/mean(idx)))
+    lm(y~x,data=dat)$coefficients[2]}))
+dt2=as.FLQuant(as.data.frame((FLPar(dt2))))
+
+plot(FLQuants("OM"=dat,"Index"=dt2))
+```
+
+**Figure `r iFig=iFig+1; iFig`** Slope for 3 years
+
+
+```{r}
+rtn=FLCore:::roc(dat>0,dt2)   
+ggplot(rtn)+
+  geom_line(aes(FPR,TPR))+geom_abline(aes(intercept=0,slope=1),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC Curve
+
+
+```{r}
+object=FLStocks("SQ"=burnin[[3]],"Predators"=burnin[[4]],"Kick"=kick[[4]],"No demand"=nodemand[[4]])
+mCtc=FLQuants(llply(object,function(x) apply(stock.wt(x)%*%m(x)/(z(x))%*%(1-exp(-z(x))),c(2,6),sum)))
+mSSB=FLQuants(llply(object,function(x) ssb(x)[,,,2]))
+
+plot(mSSB)+facet_grid(qname~.)
+```
+
+**Figure `r iFig=iFig+1; iFig`** SSB
+
+
+```{r}
+plot(mCtc)+facet_grid(qname~.)
+```
+
+**Figure `r iFig=iFig+1; iFig`** Predator share
+
+
+```{r}
+ggboxplot(rbind(cbind("Quantity"="SSB",     ldply(mSSB, function(x) as.data.frame(x[,"2040"],drop=T))),
+                cbind("Quantity"="Predator",ldply(mCtc, function(x) as.data.frame(x[,"2040"],drop=T)))),
+      x=".id",y="data")+
+  facet_grid("Quantity~.",scale="free")
+```
+
+```{r}
+save(burnin,kick,nodemand,eq4,pars,sr4,file=file.path(dirOM,"om-skill.RData"))
+```
+
+```{r}
+load(file.path(dirOM,"oms.RData"))
+
+oms=list("Status Quo"=burnin,
+         "Kicked"    =kick,
+         "No Demand" =nodemand,
+         "F Trend"   =ftrend)
+
+#### OM #########################################################################
+om=mdply(data.frame(OM=names(oms)), function(OM) ldply(oms[[OM]], function(x) 
+                      model.frame(FLQuants(SSB    =ssb(    x)[,,,2],
+                                           Biomass=biomass(x)[,,,3],
+                                           Fbar   =apply(fbar(   x),c(2,6),sum),
+                                           Catch  =apply(catch(x),c(2,6),sum)),drop=T)))
+      
+#### MP #########################################################################
+## LBIs
+lbi=mdply(data.frame(OM=names(oms)), function(OM) ldply(oms[[OM]], function(x) 
+                      as.data.frame(indicators.len(x[,,,3], indicators=c('lbar'), params=pars[,1], metric='catch.n')[[1]],drop=T)))
+
+## Index
+hDevs=    rlnoise(100,stock(oms[[1]][[1]])[,,,3,,1]%=%0,0.3,0)%*%
+     qmin(rlnoise(100,stock(oms[[1]][[1]])[,,,3,,1]%=%0,0.5,0.6),1)
+
+idx=mdply(data.frame(OM=names(oms)), function(OM) ldply(oms[[OM]], function(x) 
+                      as.data.frame(biomass(x)[,,,3]%*%hDevs,drop=T)))
+
+smry=cbind(om,lbi=lbi[,"data"],idx=idx[,"data"])
+
+save(smry,file=file.path(dirRes,"smry.RData"))
+```
+
+```{r}
+save(hDevs,file=file.path(dirOM,"dev-idx.RData"))
+```
+
+```{r}
+ggplot(smry)+ 
+  geom_point(aes(Biomass,idx))+
+  facet_grid(OM~.id)
+```
+
+# ROC & TSS
+
+## LBIs
+```{r}
+source("~/Desktop/flr/FLCandy/R/roc.R")
+
+load(file.path(dirRes,"smry.RData"))
+
+lb=ddply(subset(smry,year%in%2021:2025),.(year,.id), with, roc(Fbar/(targetF*4),1/lbi))
+
+ggplot(transform(lb,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock","F Trend"))))+
+  geom_path(aes(FPR,TPR,col=year))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC curves for LBIs
+
+
+```{r}
+val=ddply(smry,.(.id,OM,iter), with, mdply(data.frame(yr=2021:2030), function(yr)
+                      data.frame(value=mean(lbi[year%in%(yr+0)]))))
+ref=ddply(subset(smry,year%in%2010:2011), .(OM,.id,iter), with, data.frame(ref=mean(lbi)))
+lb =merge(val,ref)
+
+lb=ddply(lb,.(yr,.id), with, roc(value/ref,value))
+```
+
+```{r}
+ggplot(transform(lb,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=yr))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+
+tss=ddply(lb, .(.id,yr), with, { flag=TSS==max(TSS); data.frame(TSS=TSS[flag],indicator=indicator[flag])})
+```
+
+```{r}
+ggplot(tss)+
+  geom_line( aes(yr,indicator,col=.id))+
+  geom_point(aes(yr,indicator,col=.id))
+```
+
+```{r}
+ggplot(tss)+
+  geom_line( aes(yr,TSS,col=.id))+
+  geom_point(aes(yr,TSS,col=.id))
+```
+
+**Figure `r iFig=iFig+1; iFig`** TSS for $1/2$
+
+
+```{r}
+val=ddply(smry,.(.id,OM,iter), with, mdply(data.frame(yr=2021:2030), function(yr) data.frame(value=mean(lbi[year%in%(yr+0+1)]))))
+ref=ddply(subset(smry,year%in%2010:2012), .(OM,.id,iter), with, data.frame(ref=mean(lbi)))
+lb =merge(val,ref)
+
+lb=ddply(lb,.(yr,.id), with, roc(value/ref,value))
+
+ggplot(transform(lb,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=yr))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+
+tss=ddply(lb, .(.id,yr), with, { flag=TSS==max(TSS); data.frame(TSS=TSS[flag],indicator=indicator[flag])})
+
+ggplot(tss)+
+  geom_line( aes(yr,indicator,col=.id))+
+  geom_point(aes(yr,indicator,col=.id))
+
+ggplot(tss)+
+  geom_line( aes(yr,TSS,col=.id))+
+  geom_point(aes(yr,TSS,col=.id))
+```
+
+**Figure `r iFig=iFig+1; iFig`** TSS for $1/2$
+
+
+## Harvest Rate
+```{r, hr2}
+load(file.path(dirRes,"smry.RData"))
+
+smry$hr=smry$Catch/smry$Biomass
+
+hr=ddply(subset(smry,year%in%2021:2025),.(year,.id), with, roc(Fbar/(targetF*4),hr))
+
+ggplot(transform(hr,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=year))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC curves for HR
+
+
+```{r, hr2-plot}
+val=ddply(smry,.(.id,OM,iter), with, mdply(data.frame(yr=2021:2030), function(yr) data.frame(value=mean(hr[year%in%(yr+0)]))))
+ref=ddply(subset(smry,year%in%2010:2011), .(OM,.id,iter), with, data.frame(ref=mean(hr)))
+hr =merge(val,ref)
+
+hr=ddply(hr,.(yr,.id), with, roc(value/ref,value))
+
+ggplot(transform(hr,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=yr))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+
+tss=ddply(hr, .(.id,yr), with, { flag=TSS==max(TSS); data.frame(TSS=TSS[flag],indicator=indicator[flag])})
+
+ggplot(tss)+
+  geom_line( aes(yr,indicator,col=.id))+
+  geom_point(aes(yr,indicator,col=.id))
+
+ggplot(tss)+
+  geom_line( aes(yr,TSS,col=.id))+
+  geom_point(aes(yr,TSS,col=.id))
+```
+
+**Figure `r iFig=iFig+1; iFig`** TSS for $1/2$
+
+
+```{r}
+val=ddply(smry,.(.id,OM,iter), with, mdply(data.frame(yr=2021:2030), function(yr) data.frame(value=mean(hr[year%in%(yr+0+1)]))))
+ref=ddply(subset(smry,year%in%2010:2012), .(OM,.id,iter), with, data.frame(ref=mean(hr)))
+hr =merge(val,ref)
+
+hr=ddply(hr,.(yr,.id), with, roc(value/ref,value))
+
+ggplot(transform(hr,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=yr))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+
+tss=ddply(hr, .(.id,yr), with, { flag=TSS==max(TSS); data.frame(TSS=TSS[flag],indicator=indicator[flag])})
+
+ggplot(tss)+
+  geom_line( aes(yr,indicator,col=.id))+
+  geom_point(aes(yr,indicator,col=.id))
+
+ggplot(tss)+
+  geom_line( aes(yr,TSS,col=.id))+
+  geom_point(aes(yr,TSS,col=.id))
+```
+
+**Figure `r iFig=iFig+1; iFig`** TSS for $1/2$
+
+## Index
+```{r}
+load(file.path(dirRes,"smry.RData"))
+source("~/Desktop/flr/FLCandy/R/roc.R")
+
+idx=ddply(subset(smry,year%in%2021:2025),.(year,.id), with, roc(Biomass/mean(Biomass),idx))
+
+ggplot(transform(idx,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=year))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC curves for HR
+
+
+```{r}
+ggplot(smry)+
+  geom_point(aes(Biomass,idx))+
+  facet_grid(OM~.id)
+```
+
+```{r}
+val=ddply(smry,.(.id,OM,iter), with, mdply(data.frame(yr=2021:2030), function(yr)
+     data.frame(value=mean(idx[year%in%(yr+0)]))))
+ref=ddply(subset(smry,year%in%2010:2011), .(OM,.id,iter), with, data.frame(ref=mean(idx)))
+idx =merge(val,ref) 
+
+idx=ddply(idx,.(yr,.id), with, roc(value/ref,value))
+
+ggplot(transform(idx,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=yr))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+
+tss=ddply(idx, .(.id,yr), with, { flag=TSS==max(TSS); data.frame(TSS=TSS[flag],indicator=indicator[flag])})
+
+ggplot(tss)+
+  geom_line( aes(yr,indicator,col=.id))+
+  geom_point(aes(yr,indicator,col=.id))
+
+ggplot(tss)+
+  geom_line( aes(yr,TSS,col=.id))+
+  geom_point(aes(yr,TSS,col=.id))
+```
+
+**Figure `r iFig=iFig+1; iFig`** TSS for $1/2$
+
+
+```{r}
+val=ddply(smry,.(.id,OM,iter), with, mdply(data.frame(yr=2021:2030), function(yr) data.frame(value=mean(idx[year%in%(yr+0+1)]))))
+ref=ddply(subset(smry,year%in%2010:2012), .(OM,.id,iter), with, data.frame(ref=mean(idx)))
+idx =merge(val,ref)
+
+idx=ddply(idx,.(yr,.id), with, roc(value/ref,value))
+
+ggplot(transform(idx,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR,col=yr))+
+  facet_wrap(~.id)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+
+tss=ddply(idx, .(.id,yr), with, { flag=TSS==max(TSS); data.frame(TSS=TSS[flag],indicator=indicator[flag])})
+
+ggplot(tss)+
+  geom_line( aes(yr,indicator,col=.id))+
+  geom_point(aes(yr,indicator,col=.id))
+
+ggplot(tss)+
+  geom_line( aes(yr,TSS,col=.id))+
+  geom_point(aes(yr,TSS,col=.id))
+```
+
+**Figure `r iFig=iFig+1; iFig`** TSS for $1/2$
+
+# Slope
+```{r}
+dat=ddply(smry,.(OM,.id,iter), with, mdply(data.frame(yr=2021:2030), 
+                                                    function(yr) {
+                                                      idx=log(idx/mean(idx)) 
+                                                      dat=data.frame(year=year[year%in%(yr+0:2)],idx=idx[   year%in%(yr+0:2)])
+                                                      
+                                                      bio=log(Biomass/mean(Biomass)) 
+                                                      dt2=data.frame(year=year[year%in%(yr+0:2)],om=bio[year%in%(yr+0:2)])
+                                                  
+                                                      data.frame(idx=coefficients(lm(idx~year,data=dat))[2],
+                                                                 om =coefficients(lm(om ~year,data=dt2))[2])
+                                                      }))
+
+ggplot(dat)+
+  geom_point(aes(om,idx,col=OM))+
+  facet_wrap(~.id)+
+  geom_abline(aes(intercept=0,slope=1,col=OM))
+
+slope=ddply(dat,.(.id), with, roc(om+1,idx))
+
+ggplot(transform(slope,.id=factor(.id,levels=c("Rec","M Annual","M Cohort","M Shock"))))+
+  geom_path(aes(FPR,TPR))+
+  geom_abline(aes(slope=1,intercept=0),col="red")+
+  facet_wrap(~.id)
+
+tss=ddply(lb, .(.id), with, { flag=TSS==max(TSS); data.frame(TSS=TSS[flag],indicator=indicator[flag])})
+
+ggplot(tss)+
+  geom_line( aes(.id,indicator))+
+  geom_point(aes(.id,indicator))
+
+ggplot(tss)+
+  geom_line( aes(.id,TSS))+
+  geom_point(aes(.id,TSS))
+```
+
+Biomass safeguards can be based on the following Index (I) reference levels:
+
+    Imin (= historical minimum value),
+    Itrig (= 1.4 Imin) 
+    Istat (=geometricmean(Ihist) exp(-1.645 sd(log(Ihist))
+
+```{r}
+load(file.path(dirRes,"smry.RData"))
+
+lmin=ddply(subset(smry,year%in%1980:2020), .(.id,iter), with, 
+      data.frame(lmin =min(idx),
+                 ltrig=min(idx)*1.4,
+                 lstat=exp(mean(log(idx)))*exp(-1.645*var(log(idx))^0.5)))
+
+ggboxplot(data=melt(lmin,id=c(".id","iter")),y="value",x=".id")+
+  facet_grid(.~variable)
+
+```
+
+
