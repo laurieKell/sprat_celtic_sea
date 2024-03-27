@@ -1,6 +1,6 @@
 ---
-title: "**Celtic Sea Sprat  (Sprattus sprattus)**"
-subtitle: "Main Figures"
+title: "Paper Figures"
+subtitle: "**Celtic Sea Sprat  (Sprattus sprattus)**"
 author: "L Kell"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
@@ -9,7 +9,7 @@ fig_width: 6
 fig_height: 4 
 tags: FLR FLCore introduction
 license: Creative Commons Attribution-ShareAlike 4.0 International Public License
-bibliography: /home/laurie/Desktop/refs.bib
+#bibliography: /home/laurie/Desktop/refs.bib
 ---
 
 ```{r, knitr, eval=TRUE, echo=FALSE, warning=FALSE, cache=FALSE}
@@ -24,7 +24,7 @@ opts_chunk$set(cache     =TRUE,
                error     =FALSE, 
                echo      =FALSE, 
                eval      =TRUE,cache   =TRUE,
-               cache.path="../cache/figs/",
+               cache.path="cache/04_paper/",
                fig.path  ="../figs/paper/",
                fig.width =8,
                fig.height=0.75*3,
@@ -34,32 +34,26 @@ iFig=0
 iTab=0
 ```
 
-```{r, dir}
-setwd("~/pCloudDrive/papers/inPrep/sprat")
-dirOM  =file.path(getwd(),"data/om")
-dirRes =file.path(getwd(),"data/results")
-dirRuns=file.path(getwd(),"data/runs")
-dirInp =file.path(getwd(),"data/inputs")
-```
 
 ```{r, pkgs}
-library( ggplot2); theme_set(theme_bw(16))
+library(ggplot2)
 
-library( ggpubr)
-library(ggcorrplot)
+library(FLCore)
+library(FLBRP)
+library(FLFishery)
+library(FLasher)
+library(FLife)
+
+library(ggpubr)
 library(GGally)
+library(ggcorrplot)
 
 library(plyr)
 library(dplyr)
 library(reshape)
 
-library(FLCore)
-library(FLBRP)
-library(FLasher)
-library(FLife)
-library( ggplotFL)
-
-library(FLCandy)
+#library(statcomp)
+#library(RTseries)
 ```
 
 
@@ -69,14 +63,22 @@ f<-function(x) -log(1-x)
 
 sel<-function(x) catch.sel(x)%/%fapex(catch.sel(x))
 
-source("~/Desktop/flr/FLCandy/R/roc.R")
+source("../source/seasonalise.R")
+source("../source/roc.R")
 ```
+
+```{r, load}
+load("../data/inputs/sprat_growth/CM_sprat_vb_param.RData")
+load("../data/om/om.RData") 
+load("../data/om/omConditioned.RData") 
+load("../data/om/omScenarios.RData")
+```
+
 
 ```{r, om}
 nits=200
 Ftar=0.25
 
-load(file.path(dirInp,"sprat_growth/CM_sprat_vb_param.RData"))
 gPar=rbind(cbind(Stock="Other",as.data.frame(bootTyp[[1]])),
            cbind(Stock="North",as.data.frame(bootTyp_north[[1]])),
            cbind(Stock="South",as.data.frame(bootTyp_south[[1]])))
@@ -97,15 +99,12 @@ sr.par[1,2]=sr.par[1,2]
 sr.par[2,2]=sr.par[2,2]
 sr4=predictModel(model=model(eq), params=sr.par)
 
-source("~/Desktop/flr/FLCandy/R/seasonalise.R")
-source("~/Desktop/flr/FLCandy/R/wtInterp.R")
-
-om4=seasonalise(window(iter(om,3), end=81))
+om4=seasonalise(window(iter(om,3), end=2100))
 
 range(om4)[c("minfbar","maxfbar")]=39
 mat(om4)[,,,c(1,3:4)]=NA
 
-dimnames(om4) <- list(year=an(dimnames(om4)$year)+1950)
+#dimnames(om4) <- list(year=an(dimnames(om4)$year)+1950)
 
 stk=qapply(om4, function(x) {  
   
@@ -131,17 +130,16 @@ range(stk)["minfbar"]=range(stk)["maxfbar"]-3
 eq4=FLBRP(stk[-1],sr=list(model=model(eq),params=params(eq)))
 
 #### Set range of Fs so can check MSY for FLStock
-f=FLQuant(c(refpts(eq4)["msy","harvest"]),dimnames=list(year=dimnames(om4)$year,season=1:4)) 
+
+f        =fbar(om4)
 f[,,,1:2]=1e-6 
 f[,,,3]  =f[,,,3]*0.25
 f[,,,4]  =f[,,,4]*0.75
 control=as(FLQuants("f"=f[,-1]),"fwdControl")  
 
+mat(om4)[is.na(mat(om4))]=0
 om4=fwd(om4,control=control,sr=sr4)
 om4=window(om4,end=2031)
-
-save(om4,eq4,sr4,pars, 
-     file=file.path(dirOM,"om4.RData"))
 ```
 
 ```{r, burnin}
@@ -177,11 +175,6 @@ m(burnin[["M2"]])[,ac(2021:2031)]=m(burnin[["M1"]])[,ac(2021:2031)]*1.5
                                                 
 control=as(FLQuants("f"=targetF[,-1]),"fwdControl") 
 burnin =FLStocks(llply(burnin, function(x) window(fwd(x,control=control,sr=sr4,residuals=devRecs),start=2001))) 
-   
-save(burnin,sr4, 
-     devTrend,devCohort,devRecs,
-     file=file.path(dirOM,"burnin.RData"))
-     file=file.path(dirOM,"om4.RData")
 ```
 
 
@@ -200,10 +193,6 @@ control=as(FLQuants("f"=(fbar(burnin[[1]])[,ac(2021:2031)]%=%1)%*%fbar(ftrend[[1
 kick   =FLStocks(llply(burnin, function(x) window(fwd(x,control=control,sr=sr4,residuals=devRecs),start=2001)))
 ```
 
-```{r, oms}
-save(kick,ftrend,
-     file=file.path(dirOM,"scenarios.RData"))  
-```
 
 # Operating Model
 
@@ -242,10 +231,6 @@ There are four possible usages
 
 
 ```{r, roc-idx}
-load(file.path(dirOM,"burnin.RData"))
-load(file.path(dirOM,"om4.RData")) 
-load(file.path(dirOM,"scenarios.RData"))  
-  
 hDevs=    rlnoise(nits,biomass(burnin[[1]])[,ac(2001:2031),,3,,1]%=%0,0.3,0)%*%
      qmin(rlnoise(nits,biomass(burnin[[1]])[,ac(2001:2031),,3,,1]%=%0,0.5,0.6),1)
 
@@ -268,10 +253,6 @@ ts=mdply(expand.grid("F"=c("burnin","kick","ftrend"),"Scenario"=names(burnin)), 
   })
 
 ts=cast(ts,Scenario+F+year+iter~quant)
-```
-
-```{r}
-save(ts,file=file.path(dirOM,"ts.RData"))  
 ```
 
 ## Indicators
@@ -331,12 +312,17 @@ hrRel=ggplot(rocHrRel)+
 ```{r, biomass}
 Bhist=mean(biomass(burnin[[1]]))
 
-rocIdx=ddply(subset(ts,year%in%2021:2025),.(Scenario,year), with, roc(biomass/Bhist,idx))
+rocIdx=ddply(subset(ts,year%in%2021:2025),.(Scenario,year), with, roc(biomass/Bhist,idx)) 
 
 idx=ggplot(rocIdx)+ 
   geom_path(aes(FPR,TPR,col=year,group=year))+
   facet_grid(.~Scenario)+
   geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+
+```{r}
+save(rocIdx,rocLbi,rocHr,file="../data/results/rocs,RData")
 ```
 
 **Figure `r iFig=iFig+1; iFig`**  ROC curves for biomass index.  
@@ -345,7 +331,7 @@ idx=ggplot(rocIdx)+
 ```{r, biomass-lag}
 dat=merge(ts[,          c("Scenario","F","iter","year","biomass")],
           transform(ts[,c("Scenario","F","iter","year","idx")],year=year+1))
-rocIdxLag=ddply(subset(dat,year%in%2021:2025),.(Scenario,year), with, roc(biomass/Bhist,idx))
+rocIdxLag=ddply(subset(dat,year%in%2021:2025),.(Scenario,year), with, roc(biomass/Bhist,idx)) 
 
 idxLag=ggplot(rocIdxLag)+ 
   geom_path(aes(FPR,TPR,col=year,group=year))+
@@ -385,10 +371,6 @@ ggarrange(idx,lbi,hr,label.y=1,
 **Figure `r iFig=iFig+1; iFig`**  ROC curves 
 
 
-```{r}
-save(rocLbi,rocLbiRel,rocHr,rocHrRel,rocIdx,rocIdxLag,file=file.path(dirRes,"roc.RData"))
-```
-
 ### Comparison of a biomass index, LBI and HR=catch/index.
 
 There are 4 OMs, where the uncertainty is additive,  i.e. for i) Base there are only recruitment deviates, then ii) variability in M down a cohort +i, iii) a year effect+ii, iv)  a regime shift +iii.
@@ -403,9 +385,6 @@ There are 4 OMs, where the uncertainty is additive,  i.e. for i) Base there are 
 
 
 ```{r, xy}
-load(file.path(dirOM,"ts.RData"))
-source("~/Desktop/flr/FLCandy/R/roc.R")
-
 dt1=ddply(ts, .(Scenario,F,iter), with, mdply(data.frame(xYr=2021:2024-1,yYr=2021:2024,nx=1,ny=2), function(xYr,yYr,nx,ny){
        data.frame(x =mean(biomass[year%in%(xYr-seq(nx)+1)]),
                   y =mean(biomass[year%in%(yYr-seq(ny)+1)]),
@@ -734,14 +713,14 @@ rfpts=FLPar(Rec   =FLPar("Rmsy"=refpts(eq4)[c("virgin"),"rec",1,drop=T]), #*exp(
 ```
 
 ```{r, ts-3-prj, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.3.RData");om1=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.3.RData");om2=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.3.RData");om3=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.3.RData");om4=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.3.RData");om5=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.3.RData");om6=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.3.RData");om7=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.3.RData");om8=om[[i]] 
+load("../data/runs/mse.0.68.0.68.TRUE.3.RData");om1=om[[i]] 
+load("../data/runs/mse.1.7.1.7.TRUE.3.RData");om2=om[[i]] 
+load("../data/runs/mse.3.39.3.39.TRUE.3.RData");om3=om[[i]] 
+load("../data/runs/mse.6.78.6.78.TRUE.3.RData");om4=om[[i]] 
+load("../data/runs/mse.10.17.10.17.TRUE.3.RData");om5=om[[i]] 
+load("../data/runs/mse.13.57.13.57.TRUE.3.RData");om6=om[[i]] 
+load("../data/runs/mse.27.13.27.13.TRUE.3.RData");om7=om[[i]] 
+load("../data/runs/mse.40.7.40.7.TRUE.3.RData");om8=om[[i]] 
 
 p()
 rp=cbind("What"="projection",p2()) 
@@ -751,14 +730,14 @@ rp=cbind("What"="projection",p2())
 
 
 ```{r, ts-3-hr1, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.3.RData");om1=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.3.RData");om2=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.3.RData");om3=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.3.RData");om4=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.3.RData");om5=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.3.RData");om6=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.3.RData");om7=HR1
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.3.RData");om8=HR1 
+load("../data/runs/mse.0.68.0.68.TRUE.3.RData");om1=HR1 
+load("../data/runs/mse.1.7.1.7.TRUE.3.RData");om2=HR1 
+load("../data/runs/mse.3.39.3.39.TRUE.3.RData");om3=HR1 
+load("../data/runs/mse.6.78.6.78.TRUE.3.RData");om4=HR1 
+load("../data/runs/mse.10.17.10.17.TRUE.3.RData");om5=HR1 
+load("../data/runs/mse.13.57.13.57.TRUE.3.RData");om6=HR1 
+load("../data/runs/mse.27.13.27.13.TRUE.3.RData");om7=HR1
+load("../data/runs/mse.40.7.40.7.TRUE.3.RData");om8=HR1 
 
 p()
 rp=rbind(rp,cbind("What"="HR1",p2()) )
@@ -767,14 +746,14 @@ rp=rbind(rp,cbind("What"="HR1",p2()) )
 **Figure `r iFig=iFig+1; iFig`**  HCR, harvest rate with 1 year lag.
 
 ```{r, ts-3-hr0, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.3.RData");om1=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.3.RData");om2=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.3.RData");om3=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.3.RData");om4=HR0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.3.RData");om5=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.3.RData");om6=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.3.RData");om7=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.3.RData");om8=HR0 
+load("../data/runs/mse.0.68.0.68.TRUE.3.RData");om1=HR0
+load("../data/runs/mse.1.7.1.7.TRUE.3.RData");om2=HR0
+load("../data/runs/mse.3.39.3.39.TRUE.3.RData");om3=HR0
+load("../data/runs/mse.6.78.6.78.TRUE.3.RData");om4=HR0 
+load("../data/runs/mse.10.17.10.17.TRUE.3.RData");om5=HR0
+load("../data/runs/mse.13.57.13.57.TRUE.3.RData");om6=HR0
+load("../data/runs/mse.27.13.27.13.TRUE.3.RData");om7=HR0
+load("../data/runs/mse.40.7.40.7.TRUE.3.RData");om8=HR0 
 
 p()
 rp=rbind(rp,cbind("What"="HR0",p2()) )
@@ -784,14 +763,14 @@ rp=rbind(rp,cbind("What"="HR0",p2()) )
 
 
 ```{r, ts-3-xy1, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.3.RData");om1=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.3.RData");om2=XY1
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.3.RData");om3=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.3.RData");om4=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.3.RData");om5=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.3.RData");om6=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.3.RData");om7=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.3.RData");om8=XY1 
+load("../data/runs/mse.0.68.0.68.TRUE.3.RData");om1=XY1 
+load("../data/runs/mse.1.7.1.7.TRUE.3.RData");om2=XY1
+load("../data/runs/mse.3.39.3.39.TRUE.3.RData");om3=XY1 
+load("../data/runs/mse.6.78.6.78.TRUE.3.RData");om4=XY1 
+load("../data/runs/mse.10.17.10.17.TRUE.3.RData");om5=XY1 
+load("../data/runs/mse.13.57.13.57.TRUE.3.RData");om6=XY1 
+load("../data/runs/mse.27.13.27.13.TRUE.3.RData");om7=XY1 
+load("../data/runs/mse.40.7.40.7.TRUE.3.RData");om8=XY1 
 
 p()
 rp=rbind(rp,cbind("What"="XY1",p2()) )
@@ -801,29 +780,22 @@ rp=rbind(rp,cbind("What"="XY1",p2()) )
 **Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 1 year lag. 
 
 ```{r, ts-3-xy0, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.3.RData");om1=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.3.RData");om2=XY0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.3.RData");om3=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.3.RData");om4=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.3.RData");om5=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.3.RData");om6=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.3.RData");om7=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.3.RData");om8=XY0 
+load("../data/runs/mse.0.68.0.68.TRUE.3.RData");om1=XY0 
+load("../data/runs/mse.1.7.1.7.TRUE.3.RData");om2=XY0
+load("../data/runs/mse.3.39.3.39.TRUE.3.RData");om3=XY0 
+load("../data/runs/mse.6.78.6.78.TRUE.3.RData");om4=XY0 
+load("../data/runs/mse.10.17.10.17.TRUE.3.RData");om5=XY0 
+load("../data/runs/mse.13.57.13.57.TRUE.3.RData");om6=XY0 
+load("../data/runs/mse.27.13.27.13.TRUE.3.RData");om7=XY0 
+load("../data/runs/mse.40.7.40.7.TRUE.3.RData");om8=XY0 
 
 p()
 rp=rbind(rp,cbind("What"="XY0",p2()))
 ```
 
-```{r}
-save(rp,file="/home/laurie/pCloudDrive/papers/inPrep/sprat/data/results/msyOM.RData")
-```
-x
 **Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 0 year lag.
 
 ```{r, bxplt-3, fig.height=0.75*10}
-load("/home/laurie/pCloudDrive/papers/inPrep/sprat/data/results/msyOM.RData") 
-load("/home/laurie/Desktop/inPrep/sprat/data/om/eq4.RData")
-
 eq4@fbar=FLQuant(0)
 
 dat=transform(subset(rp,.id%in%c(1,4,6,7,8) & year%in%2021:2030),
@@ -850,9 +822,6 @@ ggplot(subset(dat,What%in%c("projection","XY1","HR0")))+
 
 
 ```{r,fig.height=0.75*10}
-load("/home/laurie/pCloudDrive/papers/inPrep/sprat/data/results/msyOM.RData")
-load("/home/laurie/Desktop/inPrep/sprat/data/om/eq4.RData")
-
 dat=transform(subset(rp,.id%in%c(1,4,6,7,8) & year%in%2021:2030),
               What=factor(What,levels=unique(rp$What)[c(1,4,5,2,3)]))
 dat=ddply(dat,.(.id,qname,What), with, data.frame(data=filterLims(data)))
@@ -879,14 +848,14 @@ ggplot(dat)+
 
 
 ```{r, ts-4-prj, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.4.RData");om1=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.4.RData");om2=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.4.RData");om3=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.4.RData");om4=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.4.RData");om5=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.4.RData");om6=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.4.RData");om7=om[[i]] 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.4.RData");om8=om[[i]] 
+load("../data/runs/mse.0.68.0.68.TRUE.4.RData");om1=om[[i]] 
+load("../data/runs/mse.1.7.1.7.TRUE.4.RData");om2=om[[i]] 
+load("../data/runs/mse.3.39.3.39.TRUE.4.RData");om3=om[[i]] 
+load("../data/runs/mse.6.78.6.78.TRUE.4.RData");om4=om[[i]] 
+load("../data/runs/mse.10.17.10.17.TRUE.4.RData");om5=om[[i]] 
+load("../data/runs/mse.13.57.13.57.TRUE.4.RData");om6=om[[i]] 
+load("../data/runs/mse.27.13.27.13.TRUE.4.RData");om7=om[[i]] 
+load("../data/runs/mse.40.7.40.7.TRUE.4.RData");om8=om[[i]] 
 
 p()
 rp=cbind("What"="projection",p2())
@@ -897,14 +866,14 @@ rp=cbind("What"="projection",p2())
 
 
 ```{r, ts-4-hr1, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.4.RData");om1=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.4.RData");om2=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.4.RData");om3=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.4.RData");om4=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.4.RData");om5=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.4.RData");om6=HR1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.4.RData");om7=HR1
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.4.RData");om8=HR1 
+load("../data/runs/mse.0.68.0.68.TRUE.4.RData");om1=HR1 
+load("../data/runs/mse.1.7.1.7.TRUE.4.RData");om2=HR1 
+load("../data/runs/mse.3.39.3.39.TRUE.4.RData");om3=HR1 
+load("../data/runs/mse.6.78.6.78.TRUE.4.RData");om4=HR1 
+load("../data/runs/mse.10.17.10.17.TRUE.4.RData");om5=HR1 
+load("../data/runs/mse.13.57.13.57.TRUE.4.RData");om6=HR1 
+load("../data/runs/mse.27.13.27.13.TRUE.4.RData");om7=HR1
+load("../data/runs/mse.40.7.40.7.TRUE.4.RData");om8=HR1 
 
 p()
 rp=rbind(rp,cbind("What"="HR1",p2()))
@@ -913,14 +882,14 @@ rp=rbind(rp,cbind("What"="HR1",p2()))
 **Figure `r iFig=iFig+1; iFig`**  HCR, harvest rate with 1 year lag.
 
 ```{r, ts-4-hr0, fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.4.RData");om1=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.4.RData");om2=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.4.RData");om3=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.4.RData");om4=HR0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.4.RData");om5=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.4.RData");om6=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.4.RData");om7=HR0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.4.RData");om8=HR0 
+load("../data/runs/mse.0.68.0.68.TRUE.4.RData");om1=HR0
+load("../data/runs/mse.1.7.1.7.TRUE.4.RData");om2=HR0
+load("../data/runs/mse.3.39.3.39.TRUE.4.RData");om3=HR0
+load("../data/runs/mse.6.78.6.78.TRUE.4.RData");om4=HR0 
+load("../data/runs/mse.10.17.10.17.TRUE.4.RData");om5=HR0
+load("../data/runs/mse.13.57.13.57.TRUE.4.RData");om6=HR0
+load("../data/runs/mse.27.13.27.13.TRUE.4.RData");om7=HR0
+load("../data/runs/mse.40.7.40.7.TRUE.4.RData");om8=HR0 
 
 p()
 rp=rbind(rp,cbind("What"="HR0",p2()))
@@ -930,14 +899,14 @@ rp=rbind(rp,cbind("What"="HR0",p2()))
 
 
 ```{r, ts-4-xy1,  fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.4.RData");om1=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.4.RData");om2=XY1
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.4.RData");om3=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.4.RData");om4=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.4.RData");om5=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.4.RData");om6=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.4.RData");om7=XY1 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.4.RData");om8=XY1 
+load("../data/runs/mse.0.68.0.68.TRUE.4.RData");om1=XY1 
+load("../data/runs/mse.1.7.1.7.TRUE.4.RData");om2=XY1
+load("../data/runs/mse.3.39.3.39.TRUE.4.RData");om3=XY1 
+load("../data/runs/mse.6.78.6.78.TRUE.4.RData");om4=XY1 
+load("../data/runs/mse.10.17.10.17.TRUE.4.RData");om5=XY1 
+load("../data/runs/mse.13.57.13.57.TRUE.4.RData");om6=XY1 
+load("../data/runs/mse.27.13.27.13.TRUE.4.RData");om7=XY1 
+load("../data/runs/mse.40.7.40.7.TRUE.4.RData");om8=XY1 
 
 p()
 rp=rbind(rp,cbind("What"="XY1",p2()))
@@ -947,29 +916,22 @@ rp=rbind(rp,cbind("What"="XY1",p2()))
 **Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 1 year lag. 
 
 ```{r, ts-4-xy0,  fig.height=0.9*8, fig.width=10}
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.0.68.0.68.TRUE.4.RData");om1=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.1.7.1.7.TRUE.4.RData");om2=XY0
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.3.39.3.39.TRUE.4.RData");om3=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.6.78.6.78.TRUE.4.RData");om4=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.10.17.10.17.TRUE.4.RData");om5=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.13.57.13.57.TRUE.4.RData");om6=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.27.13.27.13.TRUE.4.RData");om7=XY0 
-load("~/pCloudDrive/papers/inPrep/sprat/data/runs/mse.40.7.40.7.TRUE.4.RData");om8=XY0 
+load("../data/runs/mse.0.68.0.68.TRUE.4.RData");om1=XY0 
+load("../data/runs/mse.1.7.1.7.TRUE.4.RData");om2=XY0
+load("../data/runs/mse.3.39.3.39.TRUE.4.RData");om3=XY0 
+load("../data/runs/mse.6.78.6.78.TRUE.4.RData");om4=XY0 
+load("../data/runs/mse.10.17.10.17.TRUE.4.RData");om5=XY0 
+load("../data/runs/mse.13.57.13.57.TRUE.4.RData");om6=XY0 
+load("../data/runs/mse.27.13.27.13.TRUE.4.RData");om7=XY0 
+load("../data/runs/mse.40.7.40.7.TRUE.4.RData");om8=XY0 
 
 p()
 rp=rbind(rp,cbind("What"="XY0",p2()))
 ```
 
-```{r}
-save(rp,file="/home/laurie/pCloudDrive/papers/inPrep/sprat/data/results/msyOM2.RData")
-```
-
 **Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 0 year lag.
 
 ```{r, bxp-4, fig.height=0.75*10}
-load("/home/laurie/pCloudDrive/papers/inPrep/sprat/data/results/msyOM2.RData")
-load("/home/laurie/Desktop/inPrep/sprat/data/om/eq4.RData")
-
 dat=transform(subset(rp,.id%in%c(1,4,6,7,8)& 
                        year%in%2021:2025), What=factor(What,levels=unique(rp$What)[c(1,4,5,2,3)]))
 dat=ddply(dat,.(.id,qname,What), with, data.frame(data=filterLims(data)))
@@ -996,9 +958,6 @@ ggplot(dat)+
 
 
 ```{r,fig.height=0.75*10}
-load("/home/laurie/pCloudDrive/papers/inPrep/sprat/data/results/msyOM.RData")
-load("/home/laurie/Desktop/inPrep/sprat/data/om/eq4.RData")
-
 dat=transform(subset(rp,.id%in%c(1,4,6,7,8)& year%in%2021:2040),
                           What=factor(What,levels=unique(rp$What)[c(1,4,5,2,3)]))
 dat=ddply(dat,.(.id,qname,What), with, data.frame(data=filterLims(data)))
@@ -1024,9 +983,7 @@ ggplot(dat)+
 ```
 
 
-
 ```{r, xys, fig.height=0.75*4, fig.width=0.75*12}
-load(file.path(dirRes,"roc.RData"))
 rocLbi=ddply(rocLbi,.(Scenario,year), with, data.frame(OM=state/median(state,na.rm=T),
                                                        MP=indicator/median(indicator,na.rm=T)))
 rocIdx=ddply(rocIdx,.(Scenario,year), with, data.frame(OM=state/median(state,na.rm=T),
@@ -1075,9 +1032,8 @@ ggarrange(a1, a2, a3, nrow=1, ncol=3, common.legend = TRUE, legend="right")
 ```
 
 
-
 ```{r, rocs, fig.height=0.75*4.75, fig.width=0.75*12}
-load(file.path(dirRes,"roc.RData"))
+load("../data/results/rocs,RData")
 
 b1=ggplot(subset(rocIdx,Scenario=="M Cohort"))+
   geom_path( aes( FPR,TPR,col=year))+
@@ -1106,3 +1062,7 @@ b3=ggplot(subset(rocHr,Scenario=="M Cohort"))+
 ggarrange(b1, b2, b3, nrow=1, ncol=3, common.legend = TRUE, legend="bottom")
 ```
 
+
+
+
+```

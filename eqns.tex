@@ -1,0 +1,63 @@
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lll}
+\hline
+\textbf{Parameter Symbol} & \textbf{Description}                                                                                   & \textbf{Context/Equation}          \\ \hline
+\multicolumn{3}{l}{\textit{Individual Growth}}                                                                                      \\
+\(L_\infty\)              & Asymptotic length                                                                                      & Von Bertalanffy Growth Equation   \\
+\(k\)                     & Rate of growth decline towards \(L_\infty\)                                                            & Von Bertalanffy Growth Equation   \\
+\(t_0\)                   & Hypothetical time at zero length                                                                       & Von Bertalanffy Growth Equation   \\ \hline
+\multicolumn{3}{l}{\textit{Length to Mass Conversion}}                                                                              \\
+\(a\)                     & Condition factor                                                                                       & Length-Weight Relationship        \\
+\(b\)                     & Allometric growth coefficient                                                                          & Length-Weight Relationship        \\ \hline
+\multicolumn{3}{l}{\textit{Maturity-at-age}}                                                                                        \\
+\(a_{50}\)                & Age at 50\% maturity                                                                                   & Logistic Equation                 \\
+\(a_{95}\)                & Age at 95\% maturity                                                                                   & Logistic Equation                 \\
+\(a_{\infty}\)            & Maturity as age approaches infinity                                                                     & Logistic Equation                 \\ \hline
+\multicolumn{3}{l}{\textit{Natural Mortality}}                                                                                      \\
+\(M\)                     & Instantaneous natural mortality rate                                                                   & Assumed Constant                  \\
+\(L\)                     & Body length at age                                                                                     & Related to Body Length            \\ \hline
+\multicolumn{3}{l}{\textit{Selection Pattern}}                                                                                      \\
+\(a_1\)                   & Age at maximum selection                                                                                & Double Normal                     \\
+\(sl\)                    & Rate of increase towards maximum selection                                                             & Double Normal                     \\
+\(sr\)                    & Rate of decrease from maximum selection                                                                & Double Normal                     \\ \hline
+\multicolumn{3}{l}{\textit{Spawning Stock Biomass}}                                                                                 \\
+\(S\)                     & Spawning stock biomass                                                                                 & Defined by Product                \\ \hline
+\multicolumn{3}{l}{\textit{Stock Recruitment Relationship}}                                                                         \\
+\(R\)                     & Number of recruits                                                                                     & Beverton and Holt Model           \\
+\(R_{max}\)               & Asymptotic level of recruits                                                                           & Beverton and Holt Model           \\
+\(h\)                     & Steepness (resilience to overfishing)                                                                  & Beverton and Holt Model           \\
+\(v\)                     & Virgin biomass                                                                                         & Beverton and Holt Model           \\ \hline
+\end{tabular}
+\caption{Summary of Life History Parameters}
+\label{tab:life_history_parameters}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lll}
+\hline
+\textbf{Life History Process}      & \textbf{Equation}                                                                                     & \textbf{Description}                                                                 \\ \hline
+Individual Growth                  & \(L = L_\infty(1 - \exp(-k(t-t_0)))\)                                                                 & Von Bertalanffy growth equation for length over time                                \\
+Length to Mass Conversion          & \(W = aL^b\)                                                                                          & Length-weight relationship converting length to mass                                \\
+Maturity-at-age                    & \(\begin{array}{l}
+                                      f(x) = \left\{ \begin{array}{ll}
+                                      0 & \text{if } (a_{50}-x)/a_{95} >  5 \\
+                                      a_{\infty} & \text{if } (a_{50}-x)/a_{95} < -5 \\
+                                      \frac{m_{\infty}}{1.0+19.0^{(a_{50}-x)/a_{95})}} & \text{otherwise}
+                                      \end{array} \right.
+                                      \end{array}\) & Logistic equation for maturity-at-age                                               \\
+Natural Mortality                  & \(M =  0.55L^{1.61}L_\infty^{1.44}k\)                                                                 & Relates natural mortality to body length, asymptotic length, and growth rate      \\
+Selection Pattern                  & \(\begin{array}{ll}
+                                      f(x) = \left\{ \begin{array}{ll}
+                                      2^-(\frac{a-a_1}{s_l})^2 , & \text{if } a < a_1        \\
+                                      2^-(\frac{a-a_1}{s_r})^2 , & \text{if } a \geq a_1
+                                      \end{array} \right.
+                                      \end{array}\) & Models the vulnerability of individuals to fishing                                  \\
+Spawning Stock Biomass             & \(S = \sum_{i=0}^{p} N_iQ_iG_i\)                                                                      & Spawning stock biomass as the sum of products of numbers, proportion mature, and fecundity \\
+Stock Recruitment Relationship     & \(R=\frac{0.8R_0h}{0.2S/R_{F=0}R_0(1-h)+(h-0.2)S}\)                                                   & Beverton and Holt model relating recruits to spawning stock biomass               \\ \hline
+\end{tabular}
+\caption{Equations Related to Life History Processes}
+\label{tab:life_history_equations}
+\end{table}

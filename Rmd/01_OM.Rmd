@@ -1,45 +1,21 @@
 ---
-title: "**Celtic Sea Sprat  (Sprattus sprattus)**"
-subtitle: "Operating Model Conditioning"
+title: "Operating Model Conditioning"
+subtitle: "**Celtic Sea Sprat  (Sprattus sprattus)**"
 author: "L Kell"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
 mathjax: TRUE
 fig_width: 6 
 fig_height: 4 
-tags: FLR FLCore introduction
+tags: FLR MSE Small Pelagics Emprical Management Procedures
 license: Creative Commons Attribution-ShareAlike 4.0 International Public License
-bibliography: /home/laurie/Desktop/refs.bib
+#bibliography: /home/laurie/Desktop/refs.bib
 ---
 
- 
-
-Firstly thank you for your presentation and contributions to the workshop last week. I thought it went really well and really enjoyed the wide ranging discussions. I will be in touch after the ICES conference if I need any input for the report.
-
- 
-
-More importantly I finally attach here the data that we had promised. There are four folders in the zipped file:
-
- 
-
-1)      An age length key
-
-2)      Catch data from 2000 – 2021. We have logbook data from 2000-2021. Sales notes from 2013-2021 (smaller vessels, all checked with duplicates removed from the sales notes) and Under 10m figures from 2003-2012 (this isn’t checked for duplicates because we are unsure of its reliability as it was supplied by an external source before we had access to the salesnotes data).
-
-3)      The growth data from Claire Moore’s PhD work.
-
-4)      Length frequency data (and haul positions) from the Celtic Sea Herring Acoustic Survey by year from 2003 – 2016. If needed, you can determine ICES Division from the positional data of the hauls. All length frequency data from the CSHAS from 2017 to 2021 is available at:  https://www.ices.dk/data/data-portals/Pages/acoustic.aspx using the sprat APHIA code: 126425.
-
- 
-
-Apologies for the wait, please let us know if you need more info abot any particular aspect or need to ask us any specific questions.
-
- 
 
 ICES is adopting the $rfb$ harvest control rule for **Category 3:** stocks where only surveys are available that provide trends in stock metrics, such as biomass, recruitment or total mortality. However, these rules do not appear to work well for faster-growing species, and the Workshop on Data-limited Stocks of Short-lived Species (WKDLSSLS)  concluded that trend-based management procedures, i.e. the $rfb$-rule, the 2 over 3 rule or any other combination of x over y rules with or without additional elements such as uncertainty caps or biomass safeguards leads to poor management performance i.e. high risks of stock collapse and low yields for such species, and should be avoided. It was noted that the only way to comply with precautionary principles for such rules and species is to apply very precautionary multipliers (very low catch advice). Consequently, it was recommended be to explore alternative management procedures such as harvest rate-based rules or escapement strategies for faster-growing species. These conclusions were based on stochastic annual Operating Models that included recruitment ($\sigma_R$ = 0.6) and observation errors (\sigma_O$ = 0.2) @fischer2022exploring. However, @sanchez2021adapting found that in general, the shorter the lag between observations, advice and management, the bigger the catches and the smaller the biological risks. They also found that for in-year management, x over y rules are reactive enough to stock fluctuations as to gradually reduce risks. 
 
 Therefore to explore the impact of shorter lags between survey, advice and exploitation we developed a seasonal Operating Model, and to take account of species interactions and environmental drivers we modelled natural mortality as background (M1) and predator mortality (M2).
-
 
 
 # Conditioning Operating Model
@@ -97,8 +73,8 @@ opts_chunk$set(cache     =TRUE,
                error     =FALSE, 
                echo      =FALSE, 
                eval      =TRUE,cache   =TRUE,
-               cache.path="../cache/cond/",
-               fig.path  ="../tex/figs/cond/",
+               cache.path="cache/01_OM/",
+               fig.path  ="../figs/01_OM",
                fig.width =8,
                fig.height=6,
                dev       ="png")
@@ -107,42 +83,28 @@ iFig=0
 iTab=0
 ```
 
-```{r, dir}
-dirOM  ="../data/om"
-dirRes ="../data/results"
-dirRuns="../data/runs"
-dirInp ="../data/inputs"
-```
 
 ```{r, pkgs}
-library(ggplot2); theme_set(theme_bw())
+library(ggplot2)
+
+library(FLCore)
+library(FLBRP)
+library(FLFishery)
+library(FLasher)
+library(FLife)
 
 library(ggpubr)
-library(ggcorrplot)
 library(GGally)
+library(ggcorrplot)
 
 library(plyr)
 library(dplyr)
 library(reshape)
 
-library(FLCore)
-library(FLBRP)
-library(FLasher)
-library(FLife)
-
-library(FLCandy)
-library(mpb)
-
-library(ggplotFL)
-
-
-library(rfishbase)
 library(SPMpriors)
 library(FishLife)
-
-library(statcomp)
-library(RTseries)
 ```
+
 
 
 ```{r, source}
@@ -155,11 +117,12 @@ sel<-function(x) catch.sel(x)%/%fapex(catch.sel(x))
 
 ```{r, data}
 # Celtic Sea ###################################################################
-load(file.path(dirInp,"sprat_growth/CM_sprat_vb_param.RData"))
+load("../data/inputs/sprat_growth/CM_sprat_vb_param.RData")
+load("../data/inputs/ices.RData")
 
-lnd=read.csv(file.path(dirInp,"landings.csv"))
+lnd=read.csv("../data/inputs/landings.csv")
+survey=read.csv("../data/inputs/spratSurvey.csv")
 
-survey=read.csv(file.path(dirInp,"spratSurvey.csv"))
 survey=transform(melt(survey,id="year"),Source=variable)
 
 gPar=rbind(cbind(Stock="Other",as.data.frame(bootTyp[[1]])),
@@ -172,13 +135,13 @@ pars=lhPar(pars)
 pars["v"]=10000
 pars["s"]=0.7
 
-alk<-read.csv(file.path(dirInp,"/ALK/sprat_aged_data.csv"))
+alk<-read.csv("../data/inputs/ALK/sprat_aged_data.csv")
 
 # Celtic Sea ###################################################################
-load(file.path(dirInp,"sprat_growth/CM_sprat_vb_param.RData"))
+load("../data/inputs/sprat_growth/CM_sprat_vb_param.RData")
 
 # North Sea SMS outputs ########################################################
-sms=subset(read.csv(file.path(dirInp,"Assessed_species_details_by_age_and_quarter.csv")),
+sms=subset(read.csv("../data/inputs/Assessed_species_details_by_age_and_quarter.csv"),
            Species=="Sprat")
 
 ns=FLStock(harvest =as.FLQuant(transmute(sms,year=Year,season=Quarter,age=factor(Age,levels=0:3),data=F))[c(4,1:3)],
@@ -190,7 +153,8 @@ ns=FLStock(harvest =as.FLQuant(transmute(sms,year=Year,season=Quarter,age=factor
            catch.n =as.FLQuant(transmute(sms,year=Year,season=Quarter,age=factor(Age,levels=0:3),data=C.obs))[c(4,1:3)])
 ns=window(ns,end=2016)
 
-m=read.csv(file.path(dirInp,"Sprat_M_TS.csv"))
+m=read.csv("../dataOld/inputs/Sprat_M_TS.csv")
+
 
 # Irish Sea EwE ################################################################ 
 names(m)=c("year","M2","M2low","M2high","T","Td","Td.","T3","T3d","T3d.")
@@ -290,14 +254,14 @@ ggplot(m)+
 ## ICES North Sea stock assessment
 
 ```{r, ns-m, fig.height=6,fig.width=10}
-p1=ggplot(as.data.frame(m(ICESStocks[["spr.27.3a4"]])))+
+p1=ggplot(as.data.frame(m(ices[["spr.27.3a4"]])))+
   geom_line(aes(year,data,col=ac(age)),size=1.2)+
   scale_y_continuous(limits=c(0,NA))+
   xlab("Year")+ylab("M-at-age")+
   scale_colour_manual("Age",values=rainbow(4))+
   theme_bw(20)
 
-p2=ggplot(as.data.frame(m(ICESStocks[["spr.27.3a4"]])))+
+p2=ggplot(as.data.frame(m(ices[["spr.27.3a4"]])))+
   geom_boxplot(aes(ac(age),data,fill=ac(age)))+
   geom_smooth( aes(   age+1 ,data),se=F)+
   scale_y_continuous(limits=c(0,NA))+
@@ -316,14 +280,14 @@ ggarrange(p1,p2,
 **Figure `r iFig=iFig+1; iFig`**  North Sea natural mortality-at-age
 
 ```{r, ns-swt, fig.height=6,fig.width=10}
-p1=ggplot(as.data.frame(stock.wt(ICESStocks[["spr.27.3a4"]])))+
+p1=ggplot(as.data.frame(stock.wt(ices[["spr.27.3a4"]])))+
   geom_line(aes(year,data,col=ac(age)),size=1.2)+
   scale_y_continuous(limits=c(0,NA))+
   xlab("Year")+ylab("Stock weight-at-age")+
   theme_bw(20)+
   scale_colour_manual("Age",values=rainbow(4))
 
-p2=ggplot(as.data.frame(stock.wt(ICESStocks[["spr.27.3a4"]])))+
+p2=ggplot(as.data.frame(stock.wt(ices[["spr.27.3a4"]])))+
   geom_boxplot(aes(ac(age),data,fill=ac(age)))+
   geom_smooth( aes(   age+1 ,data),se=F)+
   scale_y_continuous(limits=c(0,NA))+
@@ -341,14 +305,14 @@ ggarrange(p1,p2,
 **Figure `r iFig=iFig+1; iFig`**  North Sea stock weight-at-age
 
 ```{r, ns-cwt, fig.height=6,fig.width=10}
-p1=ggplot(as.data.frame(catch.wt(ICESStocks[["spr.27.3a4"]])))+
+p1=ggplot(as.data.frame(catch.wt(ices[["spr.27.3a4"]])))+
   geom_line(aes(year,data,col=ac(age)),size=1.2)+
   scale_y_continuous(limits=c(0,NA))+
   xlab("Year")+ylab("Catch weight-at-age")+
   theme_bw(20)+
   scale_colour_manual("Age",values=rainbow(4))
 
-p2=ggplot(as.data.frame(catch.wt(ICESStocks[["spr.27.3a4"]])))+
+p2=ggplot(as.data.frame(catch.wt(ices[["spr.27.3a4"]])))+
   geom_boxplot(aes(ac(age),data,fill=ac(age)))+
   geom_smooth( aes(   age+1 ,data),se=F)+
   scale_y_continuous(limits=c(0,NA))+
@@ -366,14 +330,14 @@ ggarrange(p1,p2,
 **Figure `r iFig=iFig+1; iFig`**  North Sea catch weight-at-age
 
 ```{r, ns-f, fig.height=6,fig.width=10}
-p1=ggplot(as.data.frame(harvest(ICESStocks[["spr.27.3a4"]])))+
+p1=ggplot(as.data.frame(harvest(ices[["spr.27.3a4"]])))+
   geom_line(aes(year,data,col=ac(age)),size=1.2)+
   scale_y_continuous(limits=c(0,NA))+
   xlab("Year")+ylab("F-at-age")+
   theme_bw(20)+
   scale_colour_manual("Age",values=rainbow(4))
 
-p2=ggplot(as.data.frame(catch.sel(ICESStocks[["spr.27.3a4"]])))+
+p2=ggplot(as.data.frame(catch.sel(ices[["spr.27.3a4"]])))+
   geom_boxplot(aes(ac(age),data,fill=ac(age)))+
   geom_smooth( aes(   age+1 ,data),se=F)+
   scale_y_continuous(limits=c(0,NA))+
@@ -391,7 +355,7 @@ ggarrange(p1,p2,
 
 
 ```{r, ns-wtratio, fig.height=6,fig.width=10}
-p1=ggplot(as.data.frame(catch.wt(ICESStocks[["spr.27.3a4"]])/stock.wt(ICESStocks[["spr.27.3a4"]])))+
+p1=ggplot(as.data.frame(catch.wt(ices[["spr.27.3a4"]])/stock.wt(ices[["spr.27.3a4"]])))+
   geom_line(aes(year,data,col=ac(age)),size=1.2)+
   geom_hline(aes(yintercept=1),linetype=2)+
   scale_y_continuous(limits=c(0,NA))+
@@ -399,7 +363,7 @@ p1=ggplot(as.data.frame(catch.wt(ICESStocks[["spr.27.3a4"]])/stock.wt(ICESStocks
   theme_bw(20)+
   scale_colour_manual("Age",values=rainbow(4))
 
-p2=ggplot(as.data.frame(catch.wt(ICESStocks[["spr.27.3a4"]])/stock.wt(ICESStocks[["spr.27.3a4"]])))+
+p2=ggplot(as.data.frame(catch.wt(ices[["spr.27.3a4"]])/stock.wt(ices[["spr.27.3a4"]])))+
   geom_boxplot(aes(ac(age),data,fill=ac(age)))+
   geom_hline(aes(yintercept=1),linetype=2)+
   geom_smooth( aes(   age+1 ,data),se=F)+
@@ -437,8 +401,8 @@ ggcorrplot(cor(dat[,-1],use="pairwise.complete.obs"))
 
 
 ```{r, cor}
-dat=subset(as.data.frame(FLQuants(m =       m(ICESStocks[["spr.27.3a4"]]),
-                                  wt=stock.wt(ICESStocks[["spr.27.3a4"]])^(1/3)),drop=T),!is.na(data))
+dat=subset(as.data.frame(FLQuants(m =       m(ices[["spr.27.3a4"]]),
+                                  wt=stock.wt(ices[["spr.27.3a4"]])^(1/3)),drop=T),!is.na(data))
 dat=cast(dat,year~qname+age,value="data")
 ggcorrplot(cor(dat[,-1],use="pairwise.complete.obs"))
 ```
@@ -478,7 +442,7 @@ ggplot(as.data.frame(wDev))+
 **Figure `r iFig=iFig+1; iFig`**  North Sea weights-at-age deviates.
 
 ```{r, ns-sn, fig.height=2,fig.width=10}
-sn=stock.n(ICESStocks[["spr.27.3a4"]])%/%yearMeans(stock.n(ICESStocks[["spr.27.3a4"]]))
+sn=stock.n(ices[["spr.27.3a4"]])%/%yearMeans(stock.n(ices[["spr.27.3a4"]]))
 sn=sn%-%yearMeans(sn)
 
 p1=ggplot(sn)+
@@ -490,7 +454,7 @@ p1=ggplot(sn)+
 
 
 ```{r, ns-cn, fig.height=2,fig.width=10}
-cn=catch.n(ICESStocks[["spr.27.3a4"]])%/%yearMeans(catch.n(ICESStocks[["spr.27.3a4"]]))
+cn=catch.n(ices[["spr.27.3a4"]])%/%yearMeans(catch.n(ices[["spr.27.3a4"]]))
 cn=cn%-%yearMeans(cn)
 
 p2=ggplot(cn)+
@@ -509,10 +473,6 @@ ggarrange(p1,p2,
 ```
 
 **Figure `r iFig=iFig+1; iFig`**  North Sea stock and catch-at-age
-
-```{r, devs-save}
-save(mDev,wDev,file=file.path(dirOM,"dev-ns.RData")) 
-```
 
 # Annual Operating Model
 
@@ -546,6 +506,7 @@ eq=lhEql(pars)
 landings.sel(eq)["0"]=landings.sel(eq)["1"]*0.1
 eq=brp(eq)
 ```
+
 
 ```{r, om,stock}
 f=FLQuant(c(rep(0.1,60),seq(0.1,2.5,length.out=40)[-40],
@@ -610,8 +571,7 @@ p
 ```{r, om4}
 ## Calculate reference points with seasonality 
 
-source("~/Desktop/flr/FLCandy/R/seasonalise.R")
-source("~/Desktop/flr/FLCandy/R/wtInterp.R")
+source("../source/seasonalise.R")
 
 ## take South parameters
 
@@ -658,15 +618,12 @@ if (!is.na(range(stk)["plusgroup"]))
    range(stk)["plusgroup"]=range(stk)["max"]
 range(stk)[c("minfbar","maxfbar")]=range(stk)[c("minfbar","maxfbar")]*dim(m(om4))[4]
 range(stk)["minfbar"]=range(stk)["maxfbar"]-3
-   
+
 ## Calculate Reference points ##################################################
 eq4=FLBRP(stk[-1],sr=list(model=model(eq),params=params(eq)))  
+eq4=brp(eq4)
 
 fbar(eq4)=FLQuant(seq(0,refpts(eq4)["crash","harvest",1]/refpts(eq4)["msy","harvest",1],length.out=101))%*%refpts(eq4)["msy","harvest",1]
-```
-
-```{r}
-save(eq4,file="../data/om/eq4.RData")
 ```
 
 
@@ -702,7 +659,7 @@ sr.par[,2]=params(eq)[,1]
 sr.par[1,2]=sr.par[1,2]
 sr.par[2,2]=sr.par[2,2]
 sr4=predictModel(model=model(eq), params=sr.par)
- 
+
 #lnds=1+0*FLQuant(sample(lnd$landings,100,T),dimnames=list(year=2:100))/mean(lnd$landings)
 #ctc=FLQuant(0,dimnames=dimnames(catch(om4)[,2:100])) 
 #ctc[,,,1:2]=0
@@ -721,12 +678,11 @@ f[,,,1]  =f[,,,1]*0.2
 f[,,,4]  =f[,,,4]*0.8
 control=as(FLQuants("f"=f[,-1]),"fwdControl")  
 
+mat(om4)[is.na(mat(om4))]=0
+
 om4=fwd(propagate(om4,101),control=control,sr=sr4)
 ```
 
-```{r}
-save(om4,file="/home/laurie/Desktop/tmp/t.RData")
-```
 
 ```{r, om4-eq, fig.height=9, fig.width=8}
 mod=model.frame(FLQuants(om4[,40], 
@@ -778,10 +734,6 @@ ggplot(dt2)+
 ```
 
 ```{r, eval=FALSE}
-library(FLCore)
-library(FLBRP) 
-library(FLife)
-
 eq=lhEql(lhPar(FLPar(linf=100)))
 om=as(eq,"FLStock")
 om=fwd(om,f=fbar(om)[,-1],sr=eq)
@@ -810,7 +762,7 @@ rBoot<-function(n,object,devs){
 
 dev=rBoot(100,m(ns),mDev)
 
-save(object,devs,file=file.path(dirOM,"dev-Boot.RData")
+save(object,devs,file="../data/om/dev-Boot.RData")
 ```
 
 # Operating Model Dynamics
@@ -823,13 +775,9 @@ save(object,devs,file=file.path(dirOM,"dev-Boot.RData")
     + Add Auto-correlation along cohorts
 
 
-```{r}
-library(RTseries)
-```
-
 ```{r, eval=FALSE}
-load(file.path(dirOM,"om4.RData"))
-load(file.path(dirOM,"devTest.RData"))
+load("../data/om/om4.RData")
+load("../data/om/devTest.RData")
 
 fn<-function(x) c(acf(x,plot=T)$acf)
  
@@ -873,11 +821,6 @@ plot(devTrend,iter=1)
 devRecs  =rlnorm(dim(om4)[6],iter(rec(om4),1)%=%0,0.3) 
 ```
 
-```{r}
-save(om4,eq4,sr4,om,eq,pars, 
-     devTrend,devCohort,devRecs,
-     file=file.path(dirOM,"omConditioned.RData"))
-```
 
 # Operating Models 
 
@@ -920,15 +863,8 @@ control =as(FLQuants("f"=targetF[,ac(2021:2040)]),"fwdControl")
 ftrend=FLStocks(llply(burnin, function(x) window(fwd(x,control=control,sr=sr4,residuals=devRecs),start=2001))) 
 ```
 
-```{r, save-oms}
-save(burnin,kick,nodemand,ftrend,eq4,sr4,pars, 
-     devTrend,devCohort,devRecs, 
-     file=file.path(dirOM,"omScenarios.RData")) 
-```
 
 ```{r om-plot, fig.height=8, fig.width = 8}
-library(ggplotFL) 
-
 p=plot(window(burnin,start=2010),metrics=list( 
     Rec   =function(x) rec(x)[,,,3], 
     SSB   =function(x) ssb(x)[,,,2],
@@ -959,6 +895,22 @@ p1=plot(window(FLStocks("Status Quo"=burnin[[1]],"Kicked"=kick[[1]],
                x=rep(ISOdate(2012,1,1),4))+
     theme_bw()+xlab("Year")+theme(legend.position="bottom")
 p1
+```
+
+
+```{r, devs-save}
+save(om,lhPar,file="../data/om/om.RData")
+save(mDev,wDev,file="../data/om/devs.RData")
+
+save(eq4,file="../data/om/eq4.RData")
+
+save(om4,eq4,sr4,om,eq,pars, 
+     devTrend,devCohort,devRecs,
+     file="../data/om/omConditioned.RData")
+
+save(burnin,kick,nodemand,ftrend,eq4,sr4,pars, 
+     devTrend,devCohort,devRecs, 
+     file="../data/om/omScenarios.RData") 
 ```
 
 # Funding

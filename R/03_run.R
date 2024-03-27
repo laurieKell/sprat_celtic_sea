@@ -35,7 +35,7 @@ runCHR<-function(htar,lag,yrs,om,sr,btrig,idxSeason,devRevs,idxDevs){
     cnl=fwdControl(year  =c(iYr, rep(iYr+1, 3)), 
                    season=c(4,1,2,3),
                    value=tac, quant="catch")
-    save(cnl,om,sr4,devRecs,file="/home/laurie/Desktop/tmp/t.RData")
+    #save(cnl,om,sr4,devRecs,file="/home/laurie/Desktop/tmp/t.RData")
     #print(777)
     om =fwd(om,control=cnl,sr=sr4,residuals=devRecs,maxF=6.0)
   }
@@ -78,7 +78,7 @@ runXoY<-function(rtar,lag,ref,yrs,om,sr,btrig,idxSeason,devRevs,idxDevs){
   }  
   om0=om}
 
-load("~/pCloudDrive/papers/inPrep/sprat/data/om/omScenarios.RData")
+load("../data/om/omScenarios.RData")
 
 devRecs  =rlnorm(dim(om)[6],iter(rec(om),1)%=%0,0.3)
 
@@ -126,7 +126,7 @@ runIt<-function(targetF,histF,srr){
     XY1=runXoY(rtar=targetF/histF,lag=1,ref=2010,2021:2039,om[[i]],sr,btrig,idxSeason,recDevs,idxDevs)
     
     save(i,HR0,HR1,XY0,XY1,om,eq4,sr4,
-         file=paste("/home/laurie/pCloudDrive/papers/inPrep/sprat/data/runs/mse",round(histF,2),round(targetF,2),srr,i+3,"RData",sep="."))}}
+         file=paste("../data/runs/mse",round(histF,2),round(targetF,2),srr,i+3,"RData",sep="."))}}
 
 #for (i in seq(dim(scen)[1]))
 #  runIt(scen[i,"targetF"],scen[i,"histF"],scen[i,"srr"])
@@ -162,15 +162,15 @@ p<-function(){
                            Forage=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])),x=rep(ISOdate(2012,1,1),25))
 }
 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.0.68.0.68.TRUE.3.RData");om1=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.1.7.1.7.TRUE.3.RData");om2=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.3.39.3.39.TRUE.3.RData");om3=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.6.78.6.78.TRUE.3.RData");om4=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.13.57.13.57.TRUE.3.RData");om5=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.27.13.27.13.TRUE.3.RData");om6=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.40.7.40.7.TRUE.3.RData");om7=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.67.83.67.83.TRUE.3.RData");om8=HR0 
-load("/home/laurie/Desktop/inPrep/sprat/data/mse.101.74.101.74.TRUE.3.RData");om9=HR0 
+load("../data/runs/data/mse.0.68.0.68.TRUE.3.RData");om1=HR0 
+load("../data/runs/mse.1.7.1.7.TRUE.3.RData");om2=HR0 
+load("../data/runs/mse.3.39.3.39.TRUE.3.RData");om3=HR0 
+load("../data/runs/mse.6.78.6.78.TRUE.3.RData");om4=HR0 
+load("../data/runs/mse.13.57.13.57.TRUE.3.RData");om5=HR0 
+load("../data/runs/mse.27.13.27.13.TRUE.3.RData");om6=HR0 
+load("../data/runs/mse.40.7.40.7.TRUE.3.RData");om7=HR0 
+load("../data/runs/mse.67.83.67.83.TRUE.3.RData");om8=HR0 
+load("../data/runs/mse.101.74.101.74.TRUE.3.RData");om9=HR0 
 
 p1=plot(iter(window(FLStocks("1"=om1,"2"=om2,"3"=om3,"4"=om4,"5"=om5,"6"=om6,"7"=om7,"8"=om8,"9"=om9),
                     start=2010,end=2030),1:100),metrics=list(

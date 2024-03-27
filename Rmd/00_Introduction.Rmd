@@ -1,0 +1,460 @@
+---
+title: "Packages"
+subtitle: "**Celtic Sea Sprat  (Sprattus sprattus)**"
+author: "L Kell"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+mathjax: TRUE
+fig_width: 6 
+fig_height: 4 
+tags: FLR FLCore introduction
+license: Creative Commons Attribution-ShareAlike - 0 International Public License
+#knit: (function(inputFile, encoding) {
+#  rmarkdown::render(inputFile, encoding = encoding, output_dir="html")})
+#bibliography: refs.bib
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r, tmp, echo=FALSE, eval=FALSE}
+setwd("/home/laurie/Desktop/active/fao-dcl/Rmd")
+```
+
+```{r, knitr, echo=FALSE, warning=FALSE, cache=FALSE}
+library(knitr)
+
+opts_chunk$set(comment   =NA, 
+               warning   =FALSE, 
+               message   =FALSE, 
+               error     =FALSE, 
+               echo      =TRUE, 
+               eval      =TRUE,
+               
+               cache     =TRUE, 
+               cache.path="cache/00/",
+               
+               fig.path  ="../tex/figs/00-",
+               fig.width =8,
+               fig.height=6,
+               dev       ="png")
+
+options(digits=3)
+
+iFig=0
+iTab=0
+```
+
+
+
+# R Package Descriptions
+
+## Libraries
+
+A variety of R packages are required for data manipulation and plotting,
+obtaining life history parameters, and modelling.
+
+
+This document provides descriptions for various R packages, organsed by application.
+
+### Data Manipulation and Plotting
+
+These libraries are part of the R ecosystem for data manipulation and visualization, each serving specific purposes from data restructuring (plyr, dplyr, reshape) to advanced plotting (ggplot2, GGally, ggpubr, ggcorrplot).
+
+
+```{r, pkgs-ggplot}
+library(plyr)
+library(dplyr)
+library(reshape)
+library(ggplot2)
+
+library(ggplot2); theme_set(theme_bw())
+library(GGally)
+library(ggpubr)
+library(ggcorrplot)
+```
+
+
+- **plyr**: A set of tools for splitting, applying, and combining data. It's designed to work with data frames, lists, and arrays, making it easier to manipulate data structures in R. [Vignette](https://www.rdocumentation.org/packages/plyr/versions/- 8.9)[10][13][15][17][19].
+   
+- **dplyr**: A grammar of data manipulation, providing a consistent set of verbs that help you solve the most common data manipulation challenges. It's focused on tools for working with data frames. [Vignette](https://dplyr.tidyverse.org/articles/dplyr.html)[2][5][11][14][16][18][20].
+
+- **reshape**: Allows for flexibly restructuring and aggregating data using just two functions: melt and cast. It simplifies the process of transforming data between wide and long formats. [Documentation](https://cran.r-project.org/web/packages/reshape/index.html)[3][9].
+
+- **ggplot2**: A system for declaratively creating graphics, based on The Grammar of Graphics. It allows for the creation of complex plots from data in a data frame. [Vignette](https://ggplot- tidyverse.org)[4].
+
+- **ggpubr**: Provides easy-to-use functions for creating and customizing 'ggplot2'-based publication-ready plots. It simplifies the process of creating common types of plots and adjusting their appearance. [Vignette](https://rpkgs.datanovia.com/ggpubr/)[7].
+
+- **ggcorrplot**: A visualization tool for displaying a correlation matrix using ggplot-  It simplifies the process of creating visually appealing correlation matrices. [Vignette](https://cran.r-project.org/web/packages/ggcorrplot/vignettes/ggcorrplot-intro.html)[7].
+
+- **GGally**: Extends ggplot2 by adding several functions to reduce the complexity of combining geometric objects with transformed data. It's useful for creating pairs plots, correlations, and other complex relationships. [Vignette](https://ggobi.github.io/ggally/)[7].
+
+
+
+Citations:
+[1] https://cran.r-project.org/web/packages/plyr/index.html
+[2] https://cran.r-project.org/web/packages/dplyr/index.html
+[3] https://cran.r-project.org/web/packages/reshape/reshape.pdf
+[4] https://www.rdocumentation.org/packages/plyr/versions/- 8.9
+[5] https://cran.r-project.org/web/packages/dplyr/dplyr.pdf
+[6] https://www.statmethods.net/management/reshape.html
+[7] https://ademos.people.uic.edu/Chapter- html
+[8] https://datacarpentry.org/R-genomics/04-dplyr.html
+[9] https://cran.r-project.org/web/packages/reshape/index.html
+[10] https://rdrr.io/cran/plyr/
+[11] https://dplyr.tidyverse.org/articles/dplyr.html
+[12] https://seananderson.ca/2013/10/19/reshape/
+[13] https://github.com/hadley/plyr
+[14] https://www.geeksforgeeks.org/dplyr-package-in-r-programming/
+[15] https://cran.r-project.org/web/packages/plyr/plyr.pdf
+[16] https://www.rdocumentation.org/packages/dplyr/versions/0.- 0
+[17] https://www.rdocumentation.org/packages/plyr/versions/- 8.9/topics/plyr
+[18] https://github.com/tidyverse/dplyr/blob/main/DESCRIPTION
+[19] https://seananderson.ca/courses/12-plyr/plyr_201- pdf
+[20] https://bookdown.org/ndphillips/YaRrr/dplyr.html
+
+### FLR (Fisheries Library in R)
+
+```{r, pkgs-flr}
+library(FLCore)
+library(FLBRP)
+library(FLasher)
+library(FLife)
+library(ggplotFL)
+```
+
+-  **FLCore**: Provides the core classes and methods to represent typical fisheries science data types and operations on them. It's the backbone of the FLR project for quantitative fisheries science. [Vignette](https://flr-project.org/FLCore/).
+
+-  **FLBRP**: Stands for FL Biological Reference Points. It's a package in the FLR project for estimating biological reference points from stock assessment models. [Documentation](https://flr-project.org/packages/).
+
+-  **FLasher**: A package for implementing stock assessment models, designed to be flexible and user-friendly for fisheries scientists. [Vignette](https://flr-project.org/FLasher/).
+
+-  **FLife**: Provides life history models for fish populations as part of the FLR project. It's used for studying and simulating fish population dynamics. [Documentation](https://flr-project.org/packages/).
+
+-  **ggplotFL**: Extends ggplot2 for plotting FLR objects. It allows for the creation of publication-quality plots of fisheries science data represented using FLR classes. [Vignette](https://flr-project.org/ggplotFL/).
+
+### Parallel Computing
+
+#### Parallel Computing
+
+```{r, pkgs-paral}
+library(doParallel)
+library(foreach)
+```
+
+
+-  **doParallel**: Provides a parallel backend for the 'foreach' looping construct. It allows for easy parallelization of R code on platforms supporting the 'parallel' package. [Vignette](https://cran.r-project.org/web/packages/doParallel/vignettes/gettingstartedParallel.pdf).
+
+-  **foreach**: Provides a looping construct for executing R code repeatedly. 'foreach' can be used with parallel backends provided by other packages like 'doParallel' for parallel execution. [Vignette](https://cran.r-project.org/web/packages/foreach/vignettes/foreach.pdf).
+
+
+#### Life Histories
+
+```{r, pkgs-lh}
+library(rfishbase)
+library(SPMpriors)
+library(FishLife)
+```
+
+
+-  **rfishbase**: A programmatic interface to 'FishBase', the world's largest database of fish species. It allows for easy access to a wide range of fish species data in R. [Vignette](https://cran.r-project.org/web/packages/rfishbase/vignettes/intro.html).
+
+-  **SPMpriors**: Provides a way to generate prior distributions for stock productivity parameters, useful in stock assessment models and fisheries management. [Documentation](https://cran.r-project.org/web/packages/SPMpriors/index.html) (No direct vignette link, see package documentation).
+
+-  **FishLife**: Offers predictions of life history, morphological, ecological, and phylogenetic traits of fish based on the 'FishLife' database. It's useful for ecological and evolutionary research. [Vignette](https://cran.r-project.org/web/packages/FishLife/vignettes/FishLife.html).
+
+Please note that for some packages, a direct link to a vignette is not provided, but you can find more information and vignettes (if available) on their respective CRAN pages or package documentation.
+
+
+## Parallel Computing
+
+### doParallel
+Provides a parallel backend for the 'foreach' looping construct, enabling the execution of R code in parallel on multiple cores or machines. [Vignette](https://cran.r-project.org/web/packages/doParallel/index.html).
+
+### foreach
+Implements a looping construct for R, which is designed to be used in parallel computing environments. It's flexible and allows for the execution of R code in parallel. [Vignette](https://cran.r-project.org/web/packages/foreach/index.html).
+
+## Life Histories
+
+### rfishbase
+A programmatic interface to 'FishBase', the world's largest database of fish species. It allows for easy access to a wide range of data on fish species. [Vignette](https://cran.r-project.org/web/packages/rfishbase/index.html).
+
+### SPMpriors
+Provides a way to generate prior distributions for stock productivity parameters, useful in fisheries stock assessment models. [Documentation](https://cran.r-project.org/web/packages/SPMpriors/index.html).
+
+### FishLife
+Offers predictions of life-history traits for fish species, based on phylogenetic imputation. It's useful for filling gaps in life-history data in fishery stock assessments. [Vignette](https://cran.r-project.org/web/packages/FishLife/index.html).
+
+
+#### Statistics
+
+```{r, pkgs-stat}
+library(statcomp)
+#library(RTseries)
+```
+
+### statcomp
+Facilitates statistical complexity and entropy-based analysis of time series data. It includes various methods for chaos, fractal, and complexity analysis. [Vignette](https://cran.r-project.org/web/packages/statcomp/index.html).
+
+### RTseries
+Provides tools for analyzing and manipulating time series data, including functions for smoothing, decomposition, and forecasting. [Documentation](https://cran.r-project.org/web/packages/RTseries/index.html).
+
+#### Fisheries
+
+```{r, pkgs-fish}
+library(FSA)
+library(fishmethods)
+```
+
+### FSA
+Offers functions for fishery science methods and models, including age-length keys, stock-recruitment relationships, and catch-at-age analysis. [Vignette](https://cran.r-project.org/web/packages/FSA/index.html).
+
+### fishmethods
+Contains a wide range of methods and models used in fishery science, such as mortality estimation, stock assessment, and length-frequency analysis. [Vignette](https://cran.r-project.org/web/packages/fishmethods/index.html).
+
+## Utilities
+
+
+#### Utilities
+
+```{r, pkgs-tools}
+library(broom)
+library(bootstrap)
+library(nlstools)
+```
+
+### broom
+Simplifies the process of converting statistical analysis objects in R into tidy data frames, making it easier to work with model outputs. [Vignette](https://cran.r-project.org/web/packages/broom/index.html).
+
+### bootstrap
+Provides functions for bootstrapping, which is a method for estimating the distribution of a statistic by resampling with replacement from the data. [Documentation](https://cran.r-project.org/web/packages/bootstrap/index.html).
+
+### nlstools
+Offers tools for analyzing nonlinear regression models, including diagnostic plots and confidence interval estimation. [Vignette](https://cran.r-project.org/web/packages/nlstools/index.html).
+
+
+### Installation 
+
+First the required Libraries (i.e. packages) need to be installed. This can be be done
+from cran, e.g.
+
+Set mirror if needed `chooseCRANmirror()`
+
+```{r, install-util, eval=FALSE}
+install.packages(c("plyr", 
+                   "dplyr", 
+                   "reshape"))
+```
+
+```{r, install-gg, eval=FALSE}
+install.packages(c("ggplot2",
+                   "ggpubr",
+                   "ggcorrplot",
+                   "GGally"))
+```
+
+#### FLR
+
+Or from <https://flr-project.org/>
+
+To install the latest released versions of the FLR packages, and their dependencies
+enter
+
+```{r, eval=FALSE}
+source("http://flr-project.org/R/instFLR.R")
+```
+
+then select 'FLCore', 'ggplotFL', 'FLBRP', 'FLasher', 'FLife', 'mydas'
+
+Or install from source
+
+```{r, eval=FALSE}
+install.packages("remotes")
+
+library(remotes)
+
+remotes:::install_github("flr/FLCore")
+remotes:::install_github("flr/FLBRP")
+remotes:::install_github("flr/ggplotFL")
+remotes:::install_github("flr/FLfishery")
+remotes:::install_github("flr/FLasher", dependencies=TRUE)
+remotes:::install_github("flr/FLife")
+remotes:::install_github("flr/mydas")
+```
+
+
+#### FishBase
+
+There are compatability problems with `FishBase`, so install an earlier
+version. 
+
+These have been fixed now. see <https://james-thorson-noaa.github.io/FishLife/>
+
+```{r, eval=FALSE}
+remotes::install_github("ropensci/rfishbase",ref="d150f2e0f5")
+remotes::install_github("james-thorson/FishLife")
+remotes::install_github("Henning-Winker/SPMpriors")
+```
+
+[Back to Top](#top)
+
+## Examples {#example}
+
+The examples here use `FLR`, tutorials on the various methods and
+packages can be found at <https://flr-project.org/doc/>
+
+The Fisheries Library in R (FLR) is a collection of tools for
+quantitative fisheries science, developed in the R language, that
+facilitates the construction of bio-economic simulation models of
+fisheries systems. FLR builds on the powerful R environment and syntax
+to create a domain-specific language for the quantitative analysis of
+the expected risks and effects of fisheries management decision. The
+classes and methods in FLR consider uncertainty an integral part of our
+knowledge of fisheries system.
+
+Life history traits include growth rate; age and size at sexual
+maturity; the temporal pattern or schedule of reproduction; the number,
+size, and sex ratio of offspring; the distribution of intrinsic or
+extrinsic mortality rates (e.g., patterns of senescence); and patterns
+of dormancy and dispersal. These traits contribute directly to
+age-specific survival and reproductive functions. The
+[`FLife`](https://flr-project.org/doc/Using_information_on_life_history_relationships.html)
+package has a variety of methods for modelling life history traits and
+functional forms for processes for use in fish stock assessment and for
+conducting Management Strategy Evaluation.
+
+These relationships have many uses, for example in age-structured
+population models, functional relationships for these processes allow
+the calculation of the population growth rate and have been used to to
+develop priors in stock assesments and to parameterise ecological
+models. The `FLife` package has methods for modelling functional forms,
+for simulating equilibrium `FLBRP` and dynamic stock objects `FLStock`.
+
+Create an `FLPar` object For a fish of length 45 cm.
+
+```{r}
+par=FLPar(linf=45)
+```
+
+```{r}
+par
+```
+
+`FLPar()` creates an FLR object of
+[class](https://flr-project.org/doc/An_overview_of_the_FLCore_classes.html)
+`FLPar`
+
+```{r}
+is(par)
+```
+
+```{r}
+?FLPar
+```
+
+Life history theory means that traits like length at maturity ($l_{50}$)
+can be derived from the expected size of a species, the `lhPar` method
+therefore uses life history theory to derive missing parameters.
+
+```{r}
+par=lhPar(par)
+par
+```
+
+```{r}
+?lhPar
+```
+
+An `FLBRP` object can then be created using `lhEql`
+
+```{r}
+eql=lhEql(par)
+```
+
+```{r}
+?lhEql
+```
+
+This creates an object of class `FLBRP`
+
+```{r}
+is(eql)
+```
+
+[`FLBRP`](https://flr-project.org/doc/Reference_points_for_fisheries_management_with_FLBRP.html)
+is used to estimate reference points, and model equilibrium dynamics
+
+```{r}
+refpts(eql)
+```
+
+[ggplotFL](https://flr-project.org/doc/ggplotFL_plotting_FLR_objects_with_ggplot- html)
+is used for plotting FLR objects with ggplot2
+
+```{r}
+plot(eql)
+```
+
+```{r}
+plot(eql,refpts="msy")
+```
+
+## More Information {#more}
+
+-   For more information on the FLR Project for Quantitative Fisheries
+    Science in R, visit the FLR webpage [^1].
+
+[^1]: <http://flr-project.org>
+
+## Author information
+
+**Laurence Kell**.
+[laurie\@seaplusplus.co.uk](mailto:laurie@seaplusplus.co.uk){.email}
+
+## Acknowledgements
+
+## Software Versions
+
+**`r version$version.string`**
+
+-   knitr: `r packageVersion('knitr')`
+
+-   FLCore: `r packageVersion('FLCore')`
+
+-   FLBRP: `r packageVersion('FLBRP')`
+
+-   FLasher: `r packageVersion('FLasher')`
+
+-   FLife: `r packageVersion('FLife')`
+
+-   ggplotFL: `r packageVersion('ggplotFL')`
+
+-   rfishbase: `r packageVersion('rfishbase')`
+
+-   SPMpriors: `r packageVersion('SPMpriors')`
+
+-   FishLife: `r packageVersion('FishLife')`
+
+-   plyr: `r packageVersion('plyr')`
+
+-   dplyr: `r packageVersion('dplyr')`
+
+-   reshape: `r packageVersion('reshape')`
+
+-   ggplot2: `r packageVersion('ggplot2')`
+
+-   ggpubr: `r packageVersion('ggpubr')`
+
+-   ggcorrplot: `r packageVersion('ggcorrplot')`
+
+-   GGally: `r packageVersion('GGally')`
+
+**Compiled**: `r date()`
+
+[Back to Top](#top)
+
+[Back to Top](#top)
+
+# References {#references}
+
+[Back to Top](#top)
