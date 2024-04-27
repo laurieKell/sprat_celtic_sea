@@ -36,10 +36,6 @@ iTab=0
 ```
 
 
-```{r, dir, eval=FALSE}
-setwd("C:/active/sprat_celtic_sea/Rmd")
-```
-
 ```{r, pkgs}
 library(ggplot2)
 

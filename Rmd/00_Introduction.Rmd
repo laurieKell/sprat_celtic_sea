@@ -17,9 +17,6 @@ editor_options:
     wrap: 72
 ---
 
-```{r, tmp, echo=FALSE, eval=FALSE}
-setwd("/home/laurie/Desktop/active/fao-dcl/Rmd")
-```
 
 ```{r, knitr, echo=FALSE, warning=FALSE, cache=FALSE}
 library(knitr)
