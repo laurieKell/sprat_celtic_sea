@@ -1,0 +1,1174 @@
+---
+title: "**Celtic Sea Sprat  (Sprattus sprattus)**"
+subtitle: "Main Figures"
+author: "L Kell"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+mathjax: TRUE
+fig_width: 6 
+fig_height: 4 
+tags: FLR FLCore introduction
+license: Creative Commons Attribution-ShareAlike 4.0 International Public License
+#: /home/laurie/Desktop/refs.bib
+---
+
+
+```{r, knitr, eval=TRUE, echo=FALSE, warning=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(knitr)
+
+opts_chunk$set(cache     =TRUE, 
+               comment   =NA, 
+               warning   =FALSE, 
+               message   =FALSE, 
+               error     =FALSE, 
+               echo      =FALSE, 
+               eval      =TRUE,cache   =TRUE,
+               cache.path="cache/figs/",
+               fig.path  ="../figs/paper/",
+               fig.width =8,
+               fig.height=0.75*3,
+               dev       ="png")
+
+iFig=0
+iTab=0
+```
+
+```{r, dir}
+dirOM  ="../data/om"
+dirRes ="../data/results"
+dirRuns="../data/runs"
+dirInp ="../data/inputs"
+```
+
+```{r, pkgs}
+library( ggplot2); theme_set(theme_bw(16))
+
+library( ggpubr)
+library(ggcorrplot)
+library(GGally)
+
+library(plyr)
+library(dplyr)
+library(reshape)
+
+library(FLCore)
+library(FLBRP)
+library(FLasher)
+library(FLife)
+library(ggplotFL)
+```
+
+
+```{r, source}
+h<-function(x) 1-exp(-x)
+f<-function(x) -log(1-x)
+
+sel<-function(x) catch.sel(x)%/%fapex(catch.sel(x))
+
+source("../source/roc.R")
+```
+
+```{r, om}
+nits=200
+Ftar=0.25
+
+load(file.path(dirInp,"sprat_growth/CM_sprat_vb_param.RData"))
+gPar=rbind(cbind(Stock="Other",as.data.frame(bootTyp[[1]])),
+           cbind(Stock="North",as.data.frame(bootTyp_north[[1]])),
+           cbind(Stock="South",as.data.frame(bootTyp_south[[1]])))
+
+pars=as((ddply(gPar,.(Stock), with, c(linf=mean(Linf),k=mean(K),t0=mean(t0))))[,-1],"FLPar")
+pars=lhPar(pars) 
+pars["v"]=10000
+pars["s"]=0.7
+
+## Southern parameters
+eq=lhEql(pars[,3])
+landings.sel(eq)["0"]=landings.sel(eq)["1"]*0.1
+eq=brp(eq)
+
+om=as(eq,"FLStock")
+om=fwd(om,f=fbar(om)[,-1],sr=eq)
+
+sr.par=FLPar(NA, dimnames=list(params=dimnames(params(eq))$params, season=1:4, iter=1))
+sr.par[,2]=params(eq)[,1]
+sr.par[1,2]=sr.par[1,2]
+sr.par[2,2]=sr.par[2,2]
+sr4=predictModel(model=model(eq), params=sr.par)
+
+source("../source/seasonalise.R")
+
+om4=seasonalise(window(iter(om,3), end=81))
+
+range(om4)[c("minfbar","maxfbar")]=39
+#mat(om4)[,,,c(1,3:4)]=NA
+
+dimnames(om4) <- list(year=an(dimnames(om4)$year)+1950)
+
+stk=qapply(om4, function(x) {  
+  
+  if (dim(x)[4]==1) return(x)
+  if (dim(x)[1]==1) {
+    x=x[,,,1]
+    return(x)}
+  
+  dnms=dimnames(x)
+  
+  dnms[[4]]=1
+  dnms[[1]]=(as.numeric(rep(dnms[[1]],each=dim(x)[4]))+seq(0,1,length.out=dim(x)[4]+1)[-(dim(x)[4]+1)])*dim(x)[4]
+  
+  FLQuant(c(aperm(x,c(4,1,2,3,5:6))),dimnames=dnms,units=units(x))})
+  
+range(stk)["min"]=min(as.numeric(dimnames(m(stk))[[1]]))
+range(stk)["max"]=max(as.numeric(dimnames(m(stk))[[1]]))
+if (!is.na(range(stk)["plusgroup"]))
+   range(stk)["plusgroup"]=range(stk)["max"]
+range(stk)[c("minfbar","maxfbar")]=range(stk)[c("minfbar","maxfbar")]*dim(m(om4))[4]
+range(stk)["minfbar"]=range(stk)["maxfbar"]-3
+   
+eq4=FLBRP(stk[-1],sr=list(model=model(eq),params=params(eq)))
+
+#### Set range of Fs so can check MSY for FLStock
+f=FLQuant(c(computeRefpts(eq4)["msy","harvest"]),dimnames=list(year=dimnames(om4)$year,season=1:4)) 
+f[,,,1:2]=1e-6 
+f[,,,3]  =f[,,,3]*0.25
+f[,,,4]  =f[,,,4]*0.75
+control=as(FLQuants("f"=f[,-1]),"fwdControl")  
+
+om4=fwd(om4,control=control,sr=sr4)
+om4=window(om4,end=2031)
+
+#save(om4,eq4,sr4,pars, 
+#     file=file.path(dirOM,"om4.RData"))
+```
+
+```{r, burnin}
+# bug in apply 
+rlcohort<-function(x, sd=1, b=0){
+    as(apply(FLCohort(x), c(2:3,5:6), function(y)
+          FLife:::noiseFn(prod(dim(y)),sd=sd,b=b)),"FLQuant")
+  }
+
+rlcohort<-function(x, sd=1, b=0){
+    res=adply(FLCohort(x), c(2:3,5:6), function(y)
+          data.frame(expand.grid(dimnames(y)[2:1]),data=FLife:::noiseFn(prod(dim(y)),sd=sd,b=b)))
+    as.FLQuant(mutate(res,year=an(ac(cohort))+an(ac(age)))[,-1])[,dimnames(x)$year]
+  }
+
+devRecs  =rlnorm( nits,iter(rec(om4),1)%=%0,     0.3)
+devTrend =rlnoise(nits,m(om4)[1,,,1,,1]%=%0,  sd=0.3,b=0)
+devCohort=exp(rlcohort(propagate(m(om4),nits),sd=0.3,b=0.6))
+
+burnin =propagate(om4,nits)
+
+targetF=Ftar*FLQuant(rep(c(0.2,1e-6,1e-6,0.8),each=dim(burnin)[2]),dimnames=dimnames(fbar(burnin)))%*%
+                       rlnoise(nits,fbar(burnin)%=%0,0.3,0)
+
+burnin=FLStocks("Base"    =burnin,
+                "M Cohort"=burnin,
+                "M1"      =burnin,
+                "M2"      =burnin)
+
+m(burnin[["M Cohort"]])=m(burnin[["Base"]])%*%devCohort[,dimnames(burnin[[1]])$year]
+m(burnin[["M1"]])      =m(burnin[["M Cohort"]])%*%devTrend[,dimnames(burnin[[1]])$year]
+m(burnin[["M2"]])[,ac(2021:2031)]=m(burnin[["M1"]])[,ac(2021:2031)]*1.5
+                                                
+control=as(FLQuants("f"=targetF[,-1]),"fwdControl") 
+burnin =FLStocks(llply(burnin, function(x) window(fwd(x,control=control,sr=sr4,residuals=devRecs),start=2001))) 
+   
+save(burnin,sr4, 
+     devTrend,devCohort,devRecs,
+     file=file.path(dirOM,"burnin.RData"))
+     file=file.path(dirOM,"om4.RData")
+```
+
+
+```{r oms-trends}
+fnl=c(seq(0,1,length.out=101)[-101],seq(1,4,length.out=100))
+fnl=t(maply(fnl, function(x) seq(1,x,length.out=11)))
+fnl=FLQuant(c(fnl),dimnames=dimnames(targetF[,ac(2021:2031),,1]))
+targetF[,ac(2021:2031)]=targetF[,ac(2021:2031)]%*%fnl
+   
+control =as(FLQuants("f"=targetF[,ac(2021:2031)]),"fwdControl")
+ftrend=FLStocks(llply(burnin, function(x) window(fwd(x,control=control,sr=sr4,residuals=devRecs),start=2001))) 
+```
+
+```{r oms-kick}
+control=as(FLQuants("f"=(fbar(burnin[[1]])[,ac(2021:2031)]%=%1)%*%fbar(ftrend[[1]])[,"2030"]),"fwdControl") 
+kick   =FLStocks(llply(burnin, function(x) window(fwd(x,control=control,sr=sr4,residuals=devRecs),start=2001)))
+```
+
+```{r, oms}
+save(kick,ftrend,
+     file=file.path(dirOM,"scenarios.RData"))  
+```
+
+# Operating Model Simulations for estimating classification skill
+
+The OM is designed to test the ability of an index/indicator to assess status and trend. 
+
+There are four trajectories based on F
+
+**Burnin:** Constant $F$ for historical and future trajectories
+**Trends:** Positive and negative trends in $F$ from 2021 onwards
+**Kicked:** Stepwise de/increase equal to 2030 level in trends
+
+ 
+```{r om-plot, fig.height=0.75*10, fig.width = 8}
+p1=plot(window(FLStocks("Step"=kick[[1]],"Trend"=ftrend[[1]]),start=2010,end=2031),metrics=list(
+    Rec  =function(x) rec(x)[,,,3],
+    SSB  =function(x) ssb(x)[,,,2], 
+    Catch=function(x) apply(catch(x),c(2,6), sum),
+    F     =function(x) apply(fbar(x), c(2,6),mean)))+
+    #Forage=function(x) apply((stock.wt(x)%*%stock.n(x)%*%(m(x)-0.025)%/%(z(x))%*%(1-exp(-z(x))))[-1],c(2,6),sum)))+
+    geom_vline(aes(xintercept=ISOdate(2020,1,1)),linetype=2)+
+    theme_bw()+
+    scale_fill_manual(  "Scenario",values=c("cyan","red"))+
+    scale_colour_manual("Scenario",values=c("cyan","red"))+
+    theme(legend.position="bottom")
+p1 
+```
+
+**Figure `r iFig=iFig+1; iFig`** Simulations for estimating classification skill
+
+```{r oem-plot, fig.height=0.75*10, fig.width = 8}
+p2=plot(window(FLStocks("Step"=kick[[1]],"Trend"=ftrend[[1]]),start=2010,end=2031),metrics=list(
+    LBI  =function(x) {res=indicators.len(x[,,,3], indicators=c('lmean'), params=pars[,1], metric='stock.n')[[1]] 
+                      names(dimnames(res))[1]="age"
+                      res},
+    Index=function(x) rlnorm(dim(x)[6],log(biomass(x[,,,3])),0.3), 
+    HR   =function(x) apply(catch(x),c(2.6),sum)%/%vb(x)[,,,3]
+    ))+
+    theme_bw()+
+    theme(legend.position="bottom")+
+    facet_grid(qname~.,scale="free_y")+
+    scale_fill_manual(  "Scenario",values=c("cyan","red"))+
+    scale_colour_manual("Scenario",values=c("cyan","red"))+
+    scale_y_continuous(limit=c(11.5,NA)) 
+p2 
+```
+
+**Figure `r iFig=iFig+1; iFig`** OEM 
+
+```{r, oem, fig.height=6, fig.width=10}
+ggarrange(p1,p2,
+          widths = c(4), heights = c(1,1,1),
+          nrow   = 1,          ncol    = 2,
+          labels = c("OM","OEM"), label.x=c(0.15,0.15), label.y=c(0.98),
+          common.legend = TRUE,
+          align = "hv")+theme_bw(16)+
+          theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank()) 
+```
+
+# Indicators
+
+There are four possible usages
+  
+  i) Relative to a reference point 
+  ii) Relative to a reference period 
+  iii) X-over-Y rules and 
+  iv) Slope of a linear regression
+
+
+```{r, roc-idx}
+hDevs=    rlnoise(nits,biomass(burnin[[1]])[,ac(2001:2031),,3,,1]%=%0,0.3,0)%*%
+     qmin(rlnoise(nits,biomass(burnin[[1]])[,ac(2001:2031),,3,,1]%=%0,0.5,0.6),1)
+
+ts=mdply(expand.grid("F"=c("burnin","kick","ftrend"),"Scenario"=names(burnin)), function(Scenario,F){
+      print(paste(Scenario,F))
+      
+      x  =get(ac(F))[[ac(Scenario)]]
+      x  =window(x,start=2001,end=2031)
+   
+      rbind(
+      cbind(quant="hr",     melt(apply(h(fbar(x )[,,,3:4]),c(2,6),sum)[drop=T])),
+      cbind(quant="catch",  melt(apply(catch(x)[,,,3:4],   c(2,6),sum)[drop=T])),
+      cbind(quant="biomass",melt(biomass(x)[,,,"3",drop=T])),
+      cbind(quant="SSB",    melt(ssb(x    )[,,,"2",drop=T])),
+      cbind(quant="vb",     melt(vb(x     )[,,,"3",drop=T])),
+               
+      cbind(quant="idx",    melt((hDevs%*%biomass(x)[,,,"3"])[drop=T])),
+      cbind(quant="hr.hat", melt((catch(x)[,,,"3"]%/%(hDevs%*%biomass(x)[,,,"3"]))[drop=T])),
+      cbind(quant="lbi",    melt(indicators.len(x[,,,"3"], indicators=c('lbar'), params=pars[,1], metric='catch.n')[[1]][drop=T])))
+  })
+
+ts=cast(ts,Scenario+F+year+iter~quant)
+```
+
+```{r}
+save(ts,file=file.path(dirOM,"ts.RData"))  
+```
+
+## Indicators
+
+```{r, lbi}
+Fhist=mean(fbar(burnin[[1]]))
+
+rocLbi=ddply(subset(ts,year%in%2021:2025),.(Scenario,year), with, roc(hr/Fhist,1/lbi))
+
+lbi=ggplot(rocLbi)+  
+  geom_path(aes(FPR,TPR,col=year,group=year))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** ROC curves for length based indicators by scenario and year.
+
+
+```{r, lbi-rel}
+### Relative to a reference period, same curve but indicator=1
+dat=merge(subset(ts,year%in%2021:2025),subset(ts,year==2010)[,-3],by=c("Scenario","F","iter"))
+
+rocLbiRel=ddply(subset(dat,year%in%2021:2025),.(Scenario,year), with, roc(hr.x/Fhist,lbi.y/lbi.x))
+
+lbiRel=ggplot(rocLbiRel)+ 
+  geom_path(aes(FPR,TPR,col=year,group=year))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+
+```{r, hr}
+rocHr=ddply(subset(ts,year%in%2021:2025),.(Scenario,year), with, roc(hr/Fhist,hr.hat))
+
+hr=ggplot(rocHr)+ 
+  geom_path(aes(FPR,TPR,col=year,group=year))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`**  ROC curves for harvest rate by scenario and year.  
+
+```{r, hr-rel}
+### Relative to a reference period, same curve but indicator=1
+dat=merge(subset(ts,year%in%2021:2025),
+          ddply(subset(ts,year%in%2010:2012)[,-3],.(Scenario,F,iter), with, data.frame(hr.hat=mean(hr.hat))),by=c("Scenario","F","iter"))
+
+rocHrRel=ddply(subset(dat,year%in%2021:2025),.(Scenario,year), with, roc(hr/Fhist,hr.hat.x/hr.hat.y))
+
+hrRel=ggplot(rocHrRel)+ 
+  geom_path(aes(FPR,TPR,col=year,group=year))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+
+```{r, biomass}
+Bhist=mean(biomass(burnin[[1]]))
+
+rocIdx=ddply(subset(ts,year%in%2021:2025),.(Scenario,year), with, roc(biomass/Bhist,idx))
+
+idx=ggplot(rocIdx)+ 
+  geom_path(aes(FPR,TPR,col=year,group=year))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`**  ROC curves for biomass index.  
+
+
+```{r, biomass-lag}
+dat=merge(ts[,          c("Scenario","F","iter","year","biomass")],
+          transform(ts[,c("Scenario","F","iter","year","idx")],year=year+1))
+rocIdxLag=ddply(subset(dat,year%in%2021:2025),.(Scenario,year), with, roc(biomass/Bhist,idx))
+
+idxLag=ggplot(rocIdxLag)+ 
+  geom_path(aes(FPR,TPR,col=year,group=year))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`**  ROC curves for lagged biomass index. 
+
+
+
+```{r, indices, fig.height=0.75*9,fig.width=0.75*9}
+idx=idx+theme(axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.title.y = element_blank() ) 
+idxlag=idxLag+theme(axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.title.y = element_blank() ) 
+lbi=lbi+theme(axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.title.y = element_blank()) 
+hr =hr +theme(axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.title.y = element_blank()) 
+
+ggarrange(idx,lbi,hr,label.y=1, 
+          widths = c(4), heights = c(1,1,1),
+          nrow   = 3,          ncol    = 1,
+          labels = c("Index","LBI","Harvest Rate"),
+          common.legend = TRUE,
+          align = "hv")+theme_bw(16)+
+          theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank())
+```
+
+**Figure `r iFig=iFig+1; iFig`**  ROC curves 
+
+
+```{r}
+save(rocLbi,rocLbiRel,rocHr,rocHrRel,rocIdx,rocIdxLag,file=file.path(dirRes,"roc.RData"))
+```
+
+### Comparison of a biomass index, LBI and HR=catch/index.
+
+There are 4 OMs, where the uncertainty is additive,  i.e. for i) Base there are only recruitment deviates, then ii) variability in M down a cohort +i, iii) a year effect+ii, iv)  a regime shift +iii.
+
+ It looks like
+
++ HR is the best and is robust, i.e. unaffected by the assumed uncertainty
++ LBIs only work after several years, i.e. has little skill after 1 or 2 years. But after 5 years they has moderate skill. So may be able to do a snapshot but will likely not work well in a HCR due to the lags
++ The index has poor to moderate skill, but improves as you add more uncertainty, It works best in detecting a regime shift.
+    
+## X-over-Y Rules:
+
+
+```{r, xy}
+source("../source/roc.R")
+
+dt1=ddply(ts, .(Scenario,F,iter), with, mdply(data.frame(xYr=2021:2024-1,yYr=2021:2024,nx=1,ny=2), function(xYr,yYr,nx,ny){
+       data.frame(x =mean(biomass[year%in%(xYr-seq(nx)+1)]),
+                  y =mean(biomass[year%in%(yYr-seq(ny)+1)]),
+                  x.=mean(idx[    year%in%(xYr-seq()+1)]),
+                  y.=mean(idx[    year%in%(yYr-seq(ny)+1)])
+                  )}))
+
+roc1o2=ddply(dt1,.(Scenario,yYr), with, roc(x/y,x./y.))
+
+p1o2=ggplot(roc1o2)+
+  geom_path(aes(FPR,TPR,col=yYr,group=yYr))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** 
+
+
+#### 2-over-3 rule
+
+```{r, rule-2o3}
+dt1=ddply(ts, .(Scenario,F,iter), with, mdply(data.frame(xYr=2021:2024-2,yYr=2021:2024,nx=2,ny=3), function(xYr,yYr,nx,ny){
+       data.frame(x =mean(biomass[year%in%(xYr-seq(nx)+1)]),
+                  y =mean(biomass[year%in%(yYr-seq(ny)+1)]),
+                  x.=mean(idx[    year%in%(xYr-seq(nx)+1)]),
+                  y.=mean(idx[    year%in%(yYr-seq(ny)+1)])
+                  )}))
+roc2o3=ddply(dt1,.(Scenario,yYr), with, roc(x/y,x./y.))
+p2o3=ggplot(roc2o3)+
+  geom_path(aes(FPR,TPR,col=yYr,group=yYr))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red") 
+```
+
+**Figure `r iFig=iFig+1; iFig`** 
+
+### Reference period
+
+#### Relative to 2010: 1-over-2
+```{r, rule-1o2}
+dt1=ddply(ts, .(Scenario,F,iter), with, mdply(expand.grid(xYr=2010,yYr=2021:2024,nx=1,ny=2), function(xYr,yYr,nx,ny){
+       data.frame(x =mean(biomass[year%in%(xYr-seq(nx)+1)]),
+                  y =mean(biomass[year%in%(yYr-seq(ny)+1)]),
+                  x.=mean(idx[    year%in%(xYr-seq(nx)+1)]),
+                  y.=mean(idx[    year%in%(yYr-seq(ny)+1)])
+                  )}))
+roc1o2Ref=ddply(dt1,.(Scenario,yYr), with, roc(x/y,x./y.))
+p1o2Ref=ggplot(roc1o2Ref)+
+  geom_path(aes(FPR,TPR,col=yYr,group=yYr))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** 
+
+#### Relative to 2010: 2-over-3
+```{r, rule-2o3-2010}
+dt2=ddply(ts, .(Scenario,F,iter), with, mdply(expand.grid(xYr=2010,yYr=2021:2024,nx=2,ny=3), function(xYr,yYr,nx,ny){
+       data.frame(x =mean(biomass[year%in%(xYr-seq(nx)+1)]),
+                  y =mean(biomass[year%in%(yYr-seq(ny)+1)]),
+                  x.=mean(idx[    year%in%(xYr-seq(nx)+1)]),
+                  y.=mean(idx[    year%in%(yYr-seq(ny)+1)])
+                  )}))
+roc2o3Ref=ddply(dt2,.(Scenario,yYr), with, roc(x/y,x./y.))
+p2o3Ref=ggplot(roc2o3Ref)+
+  geom_path(aes(FPR,TPR,col=yYr,group=yYr))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** 
+
+
+### Slope
+
+#### 3 years
+```{r}
+dt=ddply(ts, .(Scenario,F,iter), with, mdply(data.frame(yr=2021:2024,n=3), function(yr,n) {
+  dat=data.frame(year   =year[       year%in%(yr-seq(n)+1)],
+                 biomass=log(biomass[year%in%(yr-seq(n)+1)]),
+                 idx    =log(idx[    year%in%(yr-seq(n)+1)]))
+  data.frame(obs=coefficients(lm(biomass~year,data=dat))[2],
+             hat=coefficients(lm(idx    ~year,data=dat))[2]) 
+ }))
+
+rocSlope3=ddply(dt,.(Scenario,yr), with, roc(obs+1,hat))
+pSlope3=ggplot(rocSlope3)+
+  geom_path(aes(FPR,TPR,col=yr,group=yr))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+**Figure `r iFig=iFig+1; iFig`** 
+
+#### 5 years
+```{r}
+dt=ddply(ts, .(Scenario,F,iter), with, mdply(data.frame(yr=2021:2024,n=5), function(yr,n) {
+  dat=data.frame(year   =year[       year%in%(yr-seq(n)+1)],
+                 biomass=log(biomass[year%in%(yr-seq(n)+1)]),
+                 idx    =log(idx[    year%in%(yr-seq(n)+1)]))
+  data.frame(obs=coefficients(lm(biomass~year,data=dat))[2],
+             hat=coefficients(lm(idx    ~year,data=dat))[2]) 
+ }))
+
+rocSlope5=ddply(dt,.(Scenario,yr), with, roc(obs+1,hat))
+pSlope5=ggplot(rocSlope5)+
+  geom_path(aes(FPR,TPR,col=yr,group=yr))+
+  facet_grid(.~Scenario)+
+  geom_abline(aes(slope=1,intercept=0),col="red")
+```
+
+
+**Figure `r iFig=iFig+1; iFig`** 
+
+
+```{r, trends, fig.height=0.75*10,fig.width=0.75*9}
+p1o2=p1o2+theme(axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.title.y = element_blank() ) 
+p2o3=p2o3+theme(axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.title.y = element_blank()) 
+pSlope3=pSlope3+theme(axis.text.y = element_blank(),
+                    axis.ticks.y = element_blank(),
+                    axis.title.y = element_blank()) 
+pSlope5=pSlope5+theme(axis.text.y = element_blank(),
+                    axis.ticks.y = element_blank(),
+                    axis.title.y = element_blank()) 
+
+ggarrange(p1o2,p2o3,pSlope3,pSlope5,label.y=1, 
+          widths = c(4), heights = c(1,1,1.1),
+          nrow   = 4,          ncol    = 1,
+          labels = c("1 over 2","2 over 3","Slope 3", "Slope 5"),
+          common.legend = TRUE,
+          align = "hv")+theme_bw(16)+
+          theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank())
+```
+
+**Figure `r iFig=iFig+1; iFig`**  ROC curves 
+
+```{r, relative, fig.height=0.75*6,fig.width=0.75*9}
+p1o2Ref=p1o2Ref+theme(axis.text.y = element_blank(),
+               axis.ticks.y = element_blank(),
+               axis.title.y = element_blank() ) 
+p2o3Ref=p2o3Ref+theme(axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.title.y = element_blank()) 
+
+ggarrange(p1o2Ref,p2o3Ref,label.y=1, 
+          widths = c(4), heights = c(1,1),
+          nrow   = 2,          ncol    = 1,
+          labels = c("1 over 2","2 over 3","Slope 3", "Slope 5"),
+          common.legend = TRUE,
+          align = "hv")+theme_bw(16)+
+          theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.y = element_blank())
+```
+
+**Figure `r iFig=iFig+1; iFig`**  ROC curves 
+
+
+```{r}
+rocs=rbind.fill(
+           cbind(Index="LBI",         Type="Mean",    rocLbi),
+           cbind(Index="LBI",         Type="Relative",rocLbiRel),
+           cbind(Index="Harvest Rate",Type="Mean",    rocHr),
+           cbind(Index="Harvest Rate",Type="Relative",rocHrRel),
+           cbind(Index="Index",       Type="Mean",    rocIdx),
+           cbind(Index="Index",       Type="Lag",     rocIdxLag),
+           cbind(Index="1-over-2",    Type="Trend",   roc1o2),
+           cbind(Index="2-over-3",    Type="Trend",   roc2o3),
+           cbind(Index="1-relative",  Type="Trend",   roc1o2Ref),
+           cbind(Index="2-relative",  Type="Trend",   roc2o3Ref),
+           cbind(Index="Slop3 3",     Type="Trend",   rocSlope3),
+           cbind(Index="Slope 5",     Type="Trend",   rocSlope5))
+```
+
+# Performance Metrics
+
+The adoption of the voluntary Code of Conduct on Responsible Fishing and the United Nations Fish Stocks Agreement (PA, Garcia, 1996) requires that reference points and management plans are developed for all stocks—not just targeted commercial stocks, but also by-caught, threatened, endangered, and protected species (Sainsbury and Sumaila, 2003). Reference points are used in management plans as targets to maximize surplus production and as limits to minimize the risk of depleting a resource to a level where productivity is compromised. Reference points must integrate dynamic processes such as growth, fecundity, recruitment, mortality, and connectivity into indices for exploitation level and spawning reproductive potential. An example of a target reference point is the fishing mortality (F) that will produce the maximum sustainable yield (FMSY), commonly defined as the fishing mortality with a given fishing pattern and current environmental conditions that gives the long-term maximum yield. To ensure sustainability requires preventing a stock from becoming overfished, so that there is a low probability of compromising productivity. Therefore, many fishery management bodies also define a limit reference point, e.g. Blim, at a biomass at which recruitment or productivity is impaired (Restrepo and Powers, 1999). When assessing stocks, it is also important to consider trends as well as state since a stock at a target biomass may be declining due to overfishing, while, a depleted stock may be recovering due to management action (Hilborn, 2020).
+
+There are normally four main objectives, namely safety, status, yield and variability. Safety is ensuring that stock productivity is not impaired, while status is to ensure that $MSY$ is achieved. These are therefore represented by summarising status relative to limit and target reference points respectively. If status is at $B_MSY$ and exploitation at $F_{MSY}$ it is implicitly assumed that yield will be at $MSY$. However, if reference points assume stationary then this may not be the case and so the need for a yield statistic.  Management may result in large changes in catches in which case there will be a trade-off between maximising yield and minimising variability, and so inter-annual variability in yields needs to be considered. There is a potential fifth objective for forage species where maximising yield may mean that the predator share is reduced, we therefore have a fifth objective forage.
+
+@Fischer2021_GA defined a fitness function that included four components:
+\begin{equation}\label{eq:fitness_MSY}
+    \phi_{\text{MSY}}= \phi_{\text{SSB}}+\phi_{\text{Catch}}+\phi_{\text{risk}}+\phi_{\text{ICV}}\text{,}
+\end{equation}
+where the individual components were 
+
+\begin{equation}\label{eq:fitness_ssb}
+    \phi_{\text{SSB}}=-\ \bigg|\frac{\text{SSB}}{B_{\text{MSY}}}-1\bigg|\text{,}
+\end{equation}
+\begin{equation}\label{eq:fitness_catch}
+    \phi_{\text{Catch}}=-\ \bigg|\frac{\text{Catch}}{\text{MSY}}-1\bigg|\text{,}
+\end{equation}
+\begin{equation}\label{eq:fitness_risk}
+    \phi_{\text{risk}}=-\ B_{\text{lim}}\ \text{risk}, \text{\ and}
+\end{equation}
+\begin{equation}\label{eq:fitness_ICV}
+    \phi_{\text{ICV}}=-\ \text{ICV}\text{.}
+\end{equation}
+\begin{equation}\label{eq:fitness_ICV}
+    \phi_{\text{forage}}=-\ \text{ICV}\text{.}
+\end{equation}
+
+
+The summary statistics used in these fitness elements were calculated over the 50-year projection and 500 simulation replicates. $\text{SSB}/B_{\text{MSY}}$ and $\text{Catch}/\text{MSY}$ were the medians of their respective distributions and $B_{\text{lim}}\ \text{risk}$ the proportion of the SSB values falling below the biomass limit reference point $B_{\text{lim}}$ (defined as the SSB corresponding to a recruitment impairment of 30\%). The inter-annual catch variability (ICV) was the median of $|(C_y-C_{y-v})/C_{y-v}|$ (exclusive of undefined values due to division by zero) calculated every $v$ years, where $C_y$ is the catch for the year $y$ and $v$ the frequency of advice, e.g. $v=2$ for a biennial advice. Effectively, this fitness function was aimed at reaching MSY reference levels for SSB and catch, while at the same time reducing risk and ICV. 
+
+The ICES precautionary criterion generally states that the probability of SSB falling below $B_\text{lim}$ should not exceed 5\%. Therefore, $\phi_{\text{MSY}}$ is not entirely aligned towards the ICES precautionary approach, and $\phi_{\text{risk}}$ will need to be changed. Compliance with the precautionary approach can be achieved by including a penalty in the fitness when the risk exceeds 5\%, which was implemented by replacing $\phi_{\text{risk}}$ with a fitness function component for which the fitness value was linked to the $B_\text{lim}$ risk ($=P$) via a penalty function $\Omega$:
+\begin{equation}\label{eq:fitness_riskPA}
+    \phi_{\text{risk-PA}}=-\ \Omega(P)\ \text{,}
+\end{equation}
+and
+\begin{equation}\label{eq:penalty}
+    \Omega(P)= \frac{\tau_{m}}{1+e^{- \left(P - \tau_i \right)\tau_s}}\ \text{.}
+\end{equation}
+This function has a sigmoid shape (Figure \ref{fig:penalty}) and is characterised by three parameters; $\tau_{m}$ defines the maximum penalty, $\tau_{i}$ the inflection point and $\tau_{s}$ the steepness of the curve. The three parameters' values were based on considerations for one example stock (pollack, \textit{Pollachius pollachius}). When pollack was projected forward with zero catch, the sum of $\phi_{\text{SSB}}+\phi_{\text{Catch}}+\phi_{\text{ICV}}$ [Equations (\ref{eq:fitness_ssb}), (\ref{eq:fitness_catch}), and (\ref{eq:fitness_ICV})] had an absolute value of just below 5. Therefore, the maximum penalty $\tau_{m}$ was set to 5. This parameterisation had the effect that the $rfb$-rule parameterisation leading to zero-catch always had higher fitness than the $rfb$-rule parameterisations where $B_\text{lim}$ risk exceeded 5\%. The penalty curve inflection point was set to $\tau_{i}=0.06$ so that the risk could slightly exceed 5\% without immediately incurring the maximum penalty. The penalty steepness was set to $\tau_{s}=500$ so that the penalty quickly reached its maximum value but avoided a knife-edge which might cause problems during the optimisation. 
+
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics{figures/Blim_penalty_curve.pdf}
+    \caption{Fitness penalty ($\Omega$) as a function of $B_\text{lim}$ risk ($P$), as defined in Equation (\ref{eq:penalty}). The vertical red line represents the $B_\text{lim}$ risk limit of 5\%.}
+    \label{fig:penalty}
+\end{figure}
+
+The final fitness function, which included MSY objectives for catch and SSB and included precautionary considerations for the risk, was defined as:
+\begin{equation}\label{eq:fitness_PA}
+    \phi_{\text{MSY-PA}}= \phi_{\text{SSB}}+\phi_{\text{Catch}}+\phi_{\text{risk-PA}}+\phi_{\text{ICV}}\text{.}
+\end{equation}
+
+Each of the elements in $\phi_{\text{MSY-PA}}$ is negative because the genetic algorithm maximised the fitness. The fitness value of $\phi_{\text{MSY-PA}}$ quantifies the management performance of the simulation results (see e.g. Figures \ref{fig:pollack_rfb_PA_components} and \ref{fig:rfb_PA_all_stocks}, described in the Results section). Fitness values closer to 0 (less negative) indicate better performance. The aim of the optimisation procedure was to provide precautionary management solutions, and options where risk exceeds 5\% are clearly indicated by red shading.
+  
+
++ Median total catch over whole time period
++ Median inter-annual variability over whole time period 
++ Median stock size by year (and variability)
++ Median recruitment by year (and variability)
++ Median catch by year (and variability)
++ The number of years when the stability mechanism was applied
++ The median Inter-Annual Variability per iteration
+
+```{r}
+#Median total catch over whole time period
+#Median inter-annual variability over whole time period 
+
+#Median catch by year (and variability)
+#The median Inter-Annual Variability per iteration
+
+#Median stock size by year (and variability)
+
+#Median recruitment by year (and variability)
+
+#The number of years when the stability mechanism was applied
+```
+
+```{r}
+eq4@fbar=FLQuant(0)
+
+forage=apply((stock.wt(eq4)%*%stock.n(eq4)%*%(m(eq4)-0.025)%/%(m(eq4)+harvest(eq4))%*%(1-exp(-m(eq4)-harvest(eq4))))[-1],c(2,6),sum)
+
+p<-function() plot(iter(window(FLStocks("1"=om1,"4"=om4,"6"=om6,"7"=om7,"8"=om8),
+                     start=2010,end=2030),1:100),metrics=list(
+                      Recruits=function(x) rec(x)[,,,2], 
+                      SSB   =function(x) ssb(x)[,,,2],
+                      Catch =function(x) apply(catch(x),c(2,6), sum),
+                      F     =function(x) apply(fbar(x), c(2,6),function(x) mean(x)), 
+                      Forage=function(x) apply((stock.wt(x)%*%stock.n(x)%*%(m(x)-0.025)%/%(z(x))%*%(1-exp(-z(x))))[-1],c(2,6),sum)),
+        iter=c(11))+
+  facet_grid(qname~factor(stock,labels=c("2.5% Fmsy", "25% Fmsy", "50% Fmsy", "Fmsy", "150% Fmsy")),scale="free")+
+  theme_bw(18)+xlab("Year")+theme(legend.position="bottom")+
+  scale_color_manual(values=rep(c("red"),15))+
+  scale_fill_manual( values=rep(c("red"), 9))+
+  theme(legend.position="none",
+        axis.title.y = element_text(colour='NA'), 
+        axis.text.y  = element_text(colour="NA", angle=90), 
+        axis.ticks.y = element_line(colour="NA"),
+        axis.ticks =   element_line(colour="NA"),
+        axis.text.x  = element_text(colour="NA", angle=90), 
+        axis.ticks.x = element_line(colour="NA"))+
+  scale_x_continuous(breaks=NULL)+
+  geom_flpar(data=FLPars(SSB   =FLPar("MSY"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                         F     =FLPar("MSY"=refpts(eq4)[c("msy"),"harvest",1,drop=T]),
+                         Catch =FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T]),
+                         Forage=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])),x=rep(ISOdate(2012,1,1),20),linetype=2,
+             label=rep(c("MSY",rep(NA,4)),each=4),alpha=0.5)+
+  geom_flpar(data=FLPars(Recruits=FLPar("Virgin"=refpts(eq4)[c("virgin"),"rec",1,drop=T]), 
+                         SSB=FLPar("Virgin"=refpts(eq4)[c("virgin"),"ssb",1,drop=T]),
+                         Forage=FLPar("Virgin"=23314)),x=ISOdate(2012,1,1),linetype=3,label=rep(c("Virgin",rep(NA,4)),each=3),alpha=0.5)+
+  geom_vline(aes(xintercept=ISOdate(2021,1,1)),col="red")
+```
+
+```{r}
+filterLims<-function(x){
+  
+  l <- boxplot.stats(x)$stats[1]
+  u <- boxplot.stats(x)$stats[5]
+
+  for (i in 1:length(x))
+    x[i]=ifelse(x[i]>l & x[i]<u, x[i], NA)
+  
+  return(x)}
+
+p2<-function(){
+  mse=window(FLStocks("1"=om1,"4"=om4,"6"=om6,"7"=om7,"8"=om8),start=2021,end=2040)
+  mse=ldply(mse, function(y) as.data.frame(FLQuants(y,
+                        Rec   =function(x) rec(x)[,,,2], 
+                        SSB   =function(x) ssb(x)[,,,2],
+                        Catch =function(x) apply(catch(x),c(2,6), sum),
+                        F     =function(x) apply(fbar(x), c(2,6),function(x) mean(x)), #pmin(sum(x),1.5)),
+                        Forage=function(x)       object =    
+              apply((stock.wt(x)%*%stock.n(x)%*%(m(x)-0.025)%/%(z(x))%*%(1-exp(-z(x))))[-1],c(2,6),sum)),drop=T))
+  
+  return(mse)}
+
+```
+
+```{r}
+rfpts=FLPar(Rec   =FLPar("Rmsy"=refpts(eq4)[c("virgin"),"rec",1,drop=T]), #*exp(median(-m(om1)[1,,,1])),  #M at age 0 season 1
+            SSB   =FLPar("Bmsy"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+            F     =FLPar("Fmsy"=refpts(eq4)[c("msy"),"harvest",1,drop=T]),
+            Catch =FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T]),
+            Forage=FLPar("MSY" =refpts(eq4)[c("virgin"),"yield",1,drop=T]))
+```
+
+
+```{r, ts-3-prj, fig.height=0.9*8, fig.width=10,eval=FALSE}
+i=4 
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=om[[i]]
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=om[[i]]
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=om[[i]]
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=om[[i]]
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=om[[i]]
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=om[[i]]
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=om[[i]]
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=om[[i]]
+
+p()
+rp=cbind("What"="projection",p2()) 
+
+om1=iter(om1,1:11)
+om4=iter(om4,1:11)
+om6=iter(om6,1:11)
+om7=iter(om7,1:11)
+om8=iter(om8,1:11)
+```
+
+**Figure `r iFig=iFig+1; iFig`**  
+
+
+
+
+```{r, ts-3-hr1, fig.height=0.9*8, fig.width=10, eval=FALSE}
+i=4
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=HR1 
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=HR1 
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=HR1 
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=HR1 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=HR1 
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=HR1 
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=HR1
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=HR1 
+
+p() 
+rp=rbind(rp,cbind("What"="HR1",p2()) )
+```
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, harvest rate with 1 year lag.
+
+```{r, ts-3-hr0, fig.height=0.9*8, fig.width=10, eval=FALSE}
+i=4
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=HR0
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=HR0
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=HR0
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=HR0 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=HR0
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=HR0
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=HR0
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=HR0 
+
+p() 
+rp=rbind(rp,cbind("What"="HR0",p2()) )
+```
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, harvest rate with 0 year lag.
+
+
+```{r, ts-3-xy1, fig.height=0.9*8, fig.width=10, eval=FALSE}
+i=4
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=XY1 
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=XY1
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=XY1 
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=XY1 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=XY1 
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=XY1 
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=XY1 
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=XY1 
+
+p() 
+rp=rbind(rp,cbind("What"="XY1",p2()) )
+```
+
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 1 year lag. 
+
+```{r, ts-3-xy0, fig.height=0.9*8, fig.width=10, eval=FALSE}
+i=4
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=XY0 
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=XY0
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=XY0 
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=XY0 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=XY0 
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=XY0 
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=XY0 
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=XY0 
+
+p() 
+rp=rbind(rp,cbind("What"="XY0",p2()))
+
+#save(rp,file="../data/results/msyOM.RData")
+```
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 0 year lag.
+
+```{r, bxplt-3, fig.height=0.75*10, eval=FALSE}
+#load("../data/results/msyOM.RData") 
+#load("../data/om/eq4M2.RData")
+
+eq4@fbar=FLQuant(0)
+
+dat=transform(subset(rp,.id%in%c(1,4,6,7,8) & year%in%2021:2030),
+              What=factor(What,levels=unique(rp$What)[c(1,4,5,2,3)]))
+dat=ddply(dat,.(.id,qname,What), with, data.frame(data=filterLims(data)))
+
+ggplot(subset(dat,What%in%c("projection","XY1","HR0")))+
+  geom_boxplot(aes(x=What,y=data,fill=What),outlier.shape = NA) +
+  #scale_y_continuous(limits = quantile(dfr$y, c(0.1, 0.9)))+
+  facet_grid(qname~factor(.id,labels=c("2.5% Fmsy", "25% Fmsy", "50% Fmsy", "Fmsy", "150% Fmsy")),scale="free")+
+   geom_flpar(data=FLPars(SSB   =FLPar("MSY"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                          F     =FLPar("MSY"=refpts(eq4)[c("msy"),"harvest",1,drop=T]),
+                          Catch =FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T]),
+                          Forage=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])),
+             x=1,linetype=2,label=NA)+
+  geom_flpar(data=FLPars(Rec =FLPar("Virgin"=refpts(eq4)[c("virgin"),"rec",1,drop=T]), 
+                         SSB=FLPar("Virgin"=refpts(eq4)[c("virgin"),"ssb",1,drop=T]),
+                         Forage=FLPar("Virgin"=23314)),x=1,linetype=1,label=NA)+
+  theme_bw(16)+
+  theme(legend.position="bottom",
+        axis.text.x=element_text(angle=45, hjust=1))+
+  scale_fill_manual(values=c("green","white","orange"))
+```
+
+
+```{r, fig7a, fig.height=0.75*10,fig.width=10, eval=FALSE}
+load("../data/results/msyOM.RData")
+load("../data/om/eq4.RData") 
+
+dat=transform(subset(rp,.id%in%c(1,4,6,7,8) & year%in%2021:2030),
+              What=factor(What,levels=unique(rp$What)[c(1,4,5,2,3)],labels=c("Projection","XY1","XY0","HR1","HR0")),
+              qname=factor(qname,levels=c("F","SSB","Rec","Catch","Forage"),labels=c("F","SSB","Recruits","Catch","Forage")))
+dat=ddply(dat,.(.id,qname,What), with, data.frame(data=filterLims(data)))
+  
+eq4@fbar=FLQuant(0)
+
+ggplot(dat)+
+  geom_boxplot(aes(x=What,y=data,fill=What),outlier.shape = NA) +
+  #scale_y_continuous(limits = quantile(dfr$y, c(0.1, 0.9)))+
+  facet_grid(qname~factor(.id,labels=c("2.5% Fmsy", "25% Fmsy", "50% Fmsy", "Fmsy", "150% Fmsy")),scale="free")+
+  geom_flpar(data=FLPars(SSB   =FLPar("MSY"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                         F     =FLPar("MSY"=refpts(eq4)[c("msy"),"harvest",1,drop=T]),
+                         Catch =FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T]),
+                         Forage=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])),
+             x=1,linetype=2)+
+  geom_flpar(data=FLPars(Recruits=FLPar("Virgin"=refpts(eq4)[c("virgin"),"rec",1,drop=T]), 
+                         SSB=FLPar("Virgin"=refpts(eq4)[c("virgin"),"ssb",1,drop=T]),
+                         Forage=FLPar("Virgin"=23314)),x=1,linetype=1)+
+  theme_bw(16)+
+  theme(legend.position="none",
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.text.y=element_blank())+
+  scale_fill_manual(values=c("red","white","white","white","white"))+
+  xlab("")+ylab("") 
+```
+
+
+```{r, ts-4-prj, fig.height=0.9*8, fig.width=10, eval=FALSE}
+i=4
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=om[[i]]
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=om[[i]]
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=om[[i]]
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=om[[i]]
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=om[[i]]
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=om[[i]]
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=om[[i]]
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=om[[i]] 
+
+p() 
+rp=cbind("What"="projection",p2())
+
+```
+
+**Figure `r iFig=iFig+1; iFig`**  Simple projections 
+
+
+
+```{r, ts-4-hr1, fig.height=0.9*8, fig.width=10, eval=FALSE}
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=HR1 
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=HR1 
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=HR1 
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=HR1 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=HR1 
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=HR1 
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=HR1
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=HR1 
+
+p() 
+rp=rbind(rp,cbind("What"="HR1",p2()))
+```
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, harvest rate with 1 year lag.
+
+```{r, ts-4-hr0, fig.height=0.9*8, fig.width=10, eval=FALSE}
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=HR0
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=HR0
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=HR0
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=HR0 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=HR0
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=HR0
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=HR0
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=HR0 
+
+p() 
+rp=rbind(rp,cbind("What"="HR0",p2()))
+```
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, harvest rate with 0 year lag.
+
+
+```{r, ts-4-xy1,  fig.height=0.9*8, fig.width=10, eval=FALSE}
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=XY1 
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=XY1
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=XY1 
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=XY1 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=XY1 
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=XY1 
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=XY1 
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=XY1 
+
+p() 
+rp=rbind(rp,cbind("What"="XY1",p2()))
+```
+
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 1 year lag. 
+
+```{r, ts-4-xy0,  fig.height=0.9*8, fig.width=10, eval=FALSE}
+load(paste("../data/runs/mse.0.68.0.68.TRUE",i,"RData",sep="."));om1=XY0 
+load(paste("../data/runs/mse.1.7.1.7.TRUE",i,"RData",sep="."));om2=XY0
+load(paste("../data/runs/mse.3.39.3.39.TRUE",i,"RData",sep="."));om3=XY0 
+load(paste("../data/runs/mse.6.78.6.78.TRUE",i,"RData",sep="."));om4=XY0 
+load(paste("../data/runs/mse.10.17.10.17.TRUE",i,"RData",sep="."));om5=XY0 
+load(paste("../data/runs/mse.13.57.13.57.TRUE",i,"RData",sep="."));om6=XY0 
+load(paste("../data/runs/mse.27.13.27.13.TRUE",i,"RData",sep="."));om7=XY0 
+load(paste("../data/runs/mse.40.7.40.7.TRUE",i,"RData",sep="."));om8=XY0 
+
+p() 
+rp=rbind(rp,cbind("What"="XY0",p2()))
+```
+
+
+**Figure `r iFig=iFig+1; iFig`**  HCR, 2 over 3, with 0 year lag.
+
+```{r, fig7b, fig.height=0.75*10,fig.width=10, eval=FALSE}
+dat=transform(subset(rp,.id%in%c(1,4,6,7,8)& 
+                       year%in%2021:2025), 
+              What=factor(What,levels=unique(rp$What)[c(1,4,5,2,3)],labels=c("Projection","XY1","XY0","HR1","HR0")),
+              qname=factor(qname,levels=c("F","SSB","Rec","Catch","Forage"),labels=c("F","SSB","Recruits","Catch","Forage")))
+dat=ddply(dat,.(.id,qname,What), with, data.frame(data=filterLims(data)))
+  
+eq4@fbar=FLQuant(0)
+
+ggplot(dat)+
+  geom_boxplot(aes(x=What,y=data,fill=What),outlier.shape = NA) +
+  #scale_y_continuous(limits = quantile(dfr$y, c(0.1, 0.9)))+
+  facet_grid(qname~factor(.id,labels=c("2.5% Fmsy", "25% Fmsy", "50% Fmsy", "Fmsy", "150% Fmsy")),scale="free")+
+  geom_flpar(data=FLPars(SSB   =FLPar("MSY"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                         F     =FLPar("MSY"=refpts(eq4)[c("msy"),"harvest",1,drop=T]),
+                         Catch =FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T]),
+                         Forage=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])),
+             x=1,linetype=2)+
+  geom_flpar(data=FLPars(Recruits=FLPar("Virgin"=refpts(eq4)[c("virgin"),"rec",1,drop=T]), 
+                         SSB     =FLPar("Virgin"=refpts(eq4)[c("virgin"),"ssb",1,drop=T]),
+                         Forage  =FLPar("Virgin"=23314)),x=1,linetype=1)+
+  theme_bw(16)+
+  theme(legend.position="none",
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.text.y = element_blank())+
+  scale_fill_manual(values=c("red","white","white","white","white"))+
+  xlab("")+ylab("") 
+```
+
+**Figure `r iFig=iFig+1; iFig`**  Summary A
+
+
+```{r, fig7c, fig.height=0.75*10,fig.width=10,eval=FALSE}
+dat=transform(subset(rp,.id%in%c(1,4,6,7,8)& year%in%2021:2040),
+              What=factor(What,levels=unique(rp$What)[c(1,4,5,2,3)],labels=c("Projection","XY1","XY0","HR1","HR0")),
+              qname=factor(qname,levels=c("F","SSB","Rec","Catch","Forage"),labels=c("F","SSB","Recruits","Catch","Forage")))
+dat=ddply(dat,.(.id,qname,What), with, data.frame(data=filterLims(data)))
+ 
+eq4@fbar=FLQuant(0)
+ 
+ggplot(dat)+
+  geom_boxplot(aes(x=What,y=data,fill=What),outlier.shape = NA) +
+  #scale_y_continuous(limits = quantile(dfr$y, c(0.1, 0.9)))+
+  facet_grid(qname~factor(.id,labels=c("2.5% Fmsy", "25% Fmsy", "50% Fmsy", "Fmsy", "150% Fmsy")),scale="free")+
+  geom_flpar(data=FLPars(SSB   =FLPar("MSY"=refpts(eq4)[c("msy"),"ssb",1,drop=T]),
+                         F     =FLPar("MSY"=refpts(eq4)[c("msy"),"harvest",1,drop=T]),
+                         Catch =FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T]),
+                         Forage=FLPar("MSY" =refpts(eq4)[c("msy"),"yield",1,drop=T])),
+             x=1,linetype=2)+
+  geom_flpar(data=FLPars(Recruits=FLPar("Virgin"=refpts(eq4)[c("virgin"),"rec",1,drop=T]), 
+                         SSB=FLPar("Virgin"=refpts(eq4)[c("virgin"),"ssb",1,drop=T]),
+                         Forage=FLPar("Virgin"=23314)),x=1,linetype=1)+
+  theme_bw(16)+
+  theme(legend.position="none",
+        axis.text.x=element_text(angle=45, hjust=1),
+        axis.text.y = element_blank())+
+  scale_fill_manual(values=c("red","white","white","white","white"))+
+  xlab("")+ylab("") 
+```
+
+**Figure `r iFig=iFig+1; iFig`**  B
+
+
+```{r, xys, fig.height=0.75*4, fig.width=0.75*12}
+load(file.path(dirRes,"roc.RData"))
+rocLbi=ddply(rocLbi,.(Scenario,year), with, data.frame(OM=state/median(state,na.rm=T),
+                                                       MP=indicator/median(indicator,na.rm=T)))
+rocIdx=ddply(rocIdx,.(Scenario,year), with, data.frame(OM=state/median(state,na.rm=T),
+                                                       MP=indicator/median(indicator,na.rm=T)))
+rocHr=ddply(rocHr, .(Scenario,year), with, data.frame(OM=state/median(state,na.rm=T),
+                                                       MP=indicator/median(indicator,na.rm=T)))
+
+a1=ggplot(subset(rocIdx,Scenario=="M2"))+
+  geom_point( aes(OM,MP))+
+  geom_abline(aes(intercept=0,slope=1),col="red")+
+
+  #geom_smooth(aes(OM,MP),method="lm",se=FALSE)+
+  geom_hline(aes(yintercept=1),col="red",linetype=2)+
+  geom_vline(aes(xintercept=1),col="red",linetype=2)+
+  geom_text(aes(x=x,y=y,label=label),data=data.frame(x=c(0.3,0.3,2.3,2.3),y=c(0.2,5,5,0.2),label=c("TN","FP","TP","FN")),
+            size=6,col="blue")+
+  theme_bw(16)+
+  xlab("Operating Model")+
+  ylab("Abundance Index")
+  
+a2=ggplot(subset(rocLbi,Scenario=="M2"))+
+  geom_point( aes(OM,MP))+
+  #geom_abline(aes(intercept=0.95,slope=1),col="red")+
+  geom_smooth(aes(OM,MP),method="lm",se=FALSE,col="red",size=0.5)+
+  geom_hline(aes(yintercept=1),col="red",linetype=2)+
+  geom_vline(aes(xintercept=1),col="red",linetype=2)+
+  geom_text(aes(x=x,y=y,label=label),data=data.frame(x=c(0.2,0.2,3.3,3.3),y=c(0.97,1.085,1.085,0.97),label=c("TN","FP","TP","FN")),
+            size=6,col="blue")+
+  theme_bw(16)+
+  xlab("Operating Model")+
+  ylab("LBI")
+  
+a3=ggplot(subset(rocHr,Scenario=="M2"&year==2025&MP<5))+
+  geom_point( aes(OM,MP))+
+  geom_abline(aes(intercept=0,slope=1),col="red")+
+  #geom_smooth(aes(OM,MP),method="lm",se=FALSE)+
+  geom_hline(aes(yintercept=1),col="red",linetype=2)+
+  geom_vline(aes(xintercept=1),col="red",linetype=2)+
+  geom_text(aes(x=x,y=y,label=label),data=data.frame(x=c(0.25,0.25,3.25,3.25),y=c(0.5,4.75,4.75,0.5),label=c("TN","FP","TP","FN")),
+            size=6,col="blue")+
+  theme_bw(16)+
+  xlab("Operating Model")+
+  ylab("Harvest Rate")
+  
+ggarrange(a1, a2, a3, nrow=1, ncol=3, common.legend=TRUE, labels=c("a)","b)","c)")) 
+```
+
+**Figure `r iFig=iFig+1; iFig`**  C
+
+```{r, rocs, fig.height=0.7*4.75, fig.width=0.75*12}
+load("../data/results/roc.RData")
+
+rocIdx=transform(rocIdx,Lag=year-2020)
+rocLbi=transform(rocLbi,Lag=year-2020)
+rocHr =transform(rocHr, Lag=year-2020)
+
+b1=ggplot(transform(subset(rocIdx,Scenario=="M Cohort"),Lag=ac(Lag)))+
+  geom_path( aes( FPR,TPR,col=Lag))+
+  geom_line(aes(x,y),data.frame(x=seq(0,1,0.01),y=seq(0,1,0.01)))+
+  theme_bw(16)+
+  theme(legend.position="none")+
+  xlab("False +ve rate")+
+  ylab("True +ve rate")
+
+b2=ggplot(transform(subset(rocLbi,Scenario=="M Cohort"),Lag=ac(Lag)))+
+  geom_path( aes( FPR,TPR,col=Lag))+
+  geom_line(aes(x,y),data.frame(x=seq(0,1,0.01),y=seq(0,1,0.01)))+
+  theme_bw(16)+
+  theme(legend.position="none")+
+  xlab("False +ve rate")+
+  ylab("True +ve rate")
+
+b3=ggplot(transform(subset(rocHr,Scenario=="M Cohort"),Lag=ac(Lag)))+
+  geom_path( aes( FPR,TPR,col=Lag))+
+  geom_line(aes(x,y),data.frame(x=seq(0,1,0.01),y=seq(0,1,0.01)))+
+  theme_bw(16)+
+  theme(legend.position="none")+
+  xlab("False +ve rate")+
+  ylab("True +ve rate")
+
+ggarrange(b1, b2, b3, nrow=1, ncol=3, common.legend = TRUE, legend="bottom", labels=c("a)","b)","c)"))  
+```
+
+**Figure `r iFig=iFig+1; iFig`**  D
+
+doi:10.1016/j.icesjms.2006.04.015
+
+https://doi.org/10.1016/j.fishres.2021.105952
+
+Another insight derived from size spectra studies comes from the work of Andersen et al. (2009). They derive a formulation for the predation mortality to be expected from a size spectrum with a given slope and intercept in terms of mass. However, the CSM is a rather different model to theirs since it only considers the fish part of the ecosystem and is framed in terms of length rather than mass. Moreover, it treats predation mortality as a top-down process rather than in terms of mass balance. Predation mortality is defined on a simple UM2*predation pressure basis. Here, UM2 is defined as a constant M2 per unit of predation pressure. The predation pressure is summed over all predator lengths with a weighting for the feeding relationship between specific prey and predator lengths. For a particular length L of predator, predation pressure is taken to be their numbers times their length to a power $\gamma$ (if $\gamma=3$, this would be equivalent to biomass except that the condition factor linking $L^3$ to mass is included into the UM2 constant to simplify the equations). Hence, assuming a numbers size spectrum described by
+
+$N(L) = \Omega L^{\kappa}$
+
+where $N$ is numbers at length $L$ and $\Omega$ is a prefactor and $\kappa$ the scaling by length – and assuming that predation by all fish in the spectrum is mediated through a feeding relationship with mean $\mu$ and standard deviation $\sigma$, both common to all predators - and that $UM2$ is a constant that relates predation pressure to mortality and where λ is the scaling of the feeding rate of predators by length - then the predation mortality on a prey species of length L′ can be written as
+
+
+$M2(L^\prime) = \Omega \times UM2(L^\prime)^{(\kappa + \lambda)} e^{(\mu((\kappa + \lambda)/3))} \times e^{({\sigma}^2((\kappa+\lambda)^2)/18)}$
+

@@ -11,15 +11,10 @@ library(FLBRP)
 library(FLasher)
 library(FLife)
 
-library(FLCandy)
-
 library(ggplotFL)
 
 library(statcomp)
 
-library(RTseries)
-
-setwd("/home/laurie/Desktop/inPrep/sprat")
 dirOM  =file.path(getwd(),"data/om")
 dirRes =file.path(getwd(),"data/results")
 dirRuns=file.path(getwd(),"data/runs")
